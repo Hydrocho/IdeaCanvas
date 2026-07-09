@@ -57,6 +57,11 @@
         return '';
     }
 
+    function resolveAuthPanelMode(mode, user) {
+        if (user) return 'logged_in';
+        return mode === 'login' || mode === 'signup' ? mode : 'closed';
+    }
+
     function getProfileInsertCandidates(user, displayName) {
         if (!user?.id) return [];
         const normalizedName = typeof displayName === 'string' && displayName.trim()
@@ -90,5 +95,6 @@
         canWriteToBoard,
         getProfileInsertCandidates,
         getDisplayName,
+        resolveAuthPanelMode,
     };
 });

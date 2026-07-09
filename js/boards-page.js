@@ -10,6 +10,7 @@
     let isConnected = false;
     let currentUser = null;
     let currentProfile = null;
+    let authPanelMode = 'closed';
 
     const elements = {
         list: document.getElementById('boards-list'),
@@ -20,13 +21,21 @@
         createButton: document.getElementById('create-board-btn'),
         searchInput: document.getElementById('board-search-input'),
         authStatus: document.getElementById('dashboard-auth-status'),
+        authOpen: document.getElementById('dashboard-auth-open'),
+        openLoginButton: document.getElementById('dashboard-open-login-btn'),
         authLoggedOut: document.getElementById('dashboard-auth-logged-out'),
+        authSignup: document.getElementById('dashboard-auth-signup'),
         authLoggedIn: document.getElementById('dashboard-auth-logged-in'),
         emailInput: document.getElementById('dashboard-auth-email'),
         passwordInput: document.getElementById('dashboard-auth-password'),
         nameInput: document.getElementById('dashboard-auth-name'),
+        signupEmailInput: document.getElementById('dashboard-signup-email'),
+        signupPasswordInput: document.getElementById('dashboard-signup-password'),
         loginButton: document.getElementById('dashboard-login-btn'),
         signupButton: document.getElementById('dashboard-signup-btn'),
+        closeAuthButton: document.getElementById('dashboard-close-auth-btn'),
+        showSignupButton: document.getElementById('dashboard-show-signup-btn'),
+        showLoginButton: document.getElementById('dashboard-show-login-btn'),
         resetPasswordButton: document.getElementById('dashboard-reset-password-btn'),
         logoutButton: document.getElementById('dashboard-logout-btn'),
         userDisplay: document.getElementById('dashboard-user-display'),
@@ -63,6 +72,11 @@
         if (!currentProfile) return '승인 대기';
         if (currentProfile.is_master) return currentProfile.is_primary_master ? '최초 마스터' : '마스터';
         return currentProfile.role === 'teacher' ? '교사' : '승인 대기';
+    }
+
+    function showAuthPanel(mode) {
+        authPanelMode = authUtils.resolveAuthPanelMode(mode, currentUser);
+        renderAuthState();
     }
 
     function renderEmptyState(message) {
@@ -123,13 +137,17 @@
     function renderAuthState() {
         const displayName = authUtils.getDisplayName(currentProfile, currentUser);
         const dashboardAllowed = canUseDashboard();
+        const panelMode = authUtils.resolveAuthPanelMode(authPanelMode, currentUser);
+        authPanelMode = panelMode === 'logged_in' ? 'closed' : panelMode;
 
         elements.gate?.classList.toggle('hidden', dashboardAllowed);
         elements.workspace?.classList.toggle('hidden', !dashboardAllowed);
+        elements.authOpen?.classList.toggle('hidden', panelMode !== 'closed');
+        elements.authLoggedOut?.classList.toggle('hidden', panelMode !== 'login');
+        elements.authSignup?.classList.toggle('hidden', panelMode !== 'signup');
+        elements.authLoggedIn?.classList.toggle('hidden', panelMode !== 'logged_in');
 
         if (currentUser) {
-            elements.authLoggedOut?.classList.add('hidden');
-            elements.authLoggedIn?.classList.remove('hidden');
             if (elements.userDisplay) {
                 elements.userDisplay.textContent = `${displayName || currentUser.email} (${getRoleLabel()})`;
             }
@@ -139,8 +157,6 @@
                     : '교사 승인 대기 중입니다. 마스터 승인 후 보드를 만들 수 있습니다.';
             }
         } else {
-            elements.authLoggedOut?.classList.remove('hidden');
-            elements.authLoggedIn?.classList.add('hidden');
             if (elements.userDisplay) elements.userDisplay.textContent = '';
             if (elements.authStatus) elements.authStatus.textContent = '교사로 로그인하면 보드 대시보드를 사용할 수 있습니다.';
         }
@@ -390,8 +406,8 @@
     }
 
     async function handleSignup() {
-        const email = elements.emailInput?.value.trim();
-        const password = elements.passwordInput?.value.trim();
+        const email = elements.signupEmailInput?.value.trim();
+        const password = elements.signupPasswordInput?.value.trim();
         const displayName = elements.nameInput?.value.trim();
         if (!email || !password || !displayName) {
             alert('이메일, 비밀번호, 이름을 모두 입력해 주세요.');
@@ -407,6 +423,7 @@
             return;
         }
         alert('가입 확인 메일을 확인해 주세요. 이메일 확인 후 로그인하면 교사 승인 대기 상태가 됩니다.');
+        showAuthPanel('login');
     }
 
     async function handleResetPassword() {
@@ -432,6 +449,7 @@
         }
         currentUser = null;
         currentProfile = null;
+        authPanelMode = 'closed';
         boards = [];
         profiles = [];
         renderAuthState();
@@ -507,6 +525,10 @@
         if (elements.createButton) elements.createButton.addEventListener('click', createBoard);
         if (elements.list) elements.list.addEventListener('click', handleListClick);
         if (elements.searchInput) elements.searchInput.addEventListener('input', handleSearchInput);
+        if (elements.openLoginButton) elements.openLoginButton.addEventListener('click', () => showAuthPanel('login'));
+        if (elements.closeAuthButton) elements.closeAuthButton.addEventListener('click', () => showAuthPanel('closed'));
+        if (elements.showSignupButton) elements.showSignupButton.addEventListener('click', () => showAuthPanel('signup'));
+        if (elements.showLoginButton) elements.showLoginButton.addEventListener('click', () => showAuthPanel('login'));
         if (elements.loginButton) elements.loginButton.addEventListener('click', () => handleLogin().catch(error => alert(error.message)));
         if (elements.signupButton) elements.signupButton.addEventListener('click', () => handleSignup().catch(error => alert(error.message)));
         if (elements.resetPasswordButton) elements.resetPasswordButton.addEventListener('click', () => handleResetPassword().catch(error => alert(error.message)));

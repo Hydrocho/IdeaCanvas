@@ -9,6 +9,7 @@ const {
   canCreateBoard,
   canUseDashboard,
   canWriteToBoard,
+  resolveAuthPanelMode,
   getProfileInsertCandidates,
   getDisplayName,
 } = require('../js/auth');
@@ -65,6 +66,14 @@ test('uses profile name before email when displaying an authenticated user', () 
   assert.equal(getDisplayName({ display_name: 'Lee' }, { email: 'lee@example.com' }), 'Lee');
   assert.equal(getDisplayName(null, { email: 'park@example.com' }), 'park');
   assert.equal(getDisplayName(null, null), '');
+});
+
+test('resolves dashboard auth panel modes', () => {
+  assert.equal(resolveAuthPanelMode(undefined, null), 'closed');
+  assert.equal(resolveAuthPanelMode('login', null), 'login');
+  assert.equal(resolveAuthPanelMode('signup', null), 'signup');
+  assert.equal(resolveAuthPanelMode('unknown', null), 'closed');
+  assert.equal(resolveAuthPanelMode('login', { id: 'u1' }), 'logged_in');
 });
 
 test('builds primary-master then pending-teacher profile insert candidates', () => {

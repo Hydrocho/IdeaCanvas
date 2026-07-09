@@ -4,6 +4,7 @@
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Idea Canvas</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"/>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -47,14 +48,47 @@
                 <p id="dashboard-auth-status" class="text-sm text-on-surface-variant mt-1"></p>
             </div>
             <section id="dashboard-auth-card" class="fallback-card p-4 w-full lg:w-[28rem]">
-                <div id="dashboard-auth-logged-out" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <input id="dashboard-auth-email" type="email" placeholder="이메일" class="rounded-lg border-outline-variant text-sm"/>
-                    <input id="dashboard-auth-password" type="password" placeholder="비밀번호" class="rounded-lg border-outline-variant text-sm"/>
-                    <input id="dashboard-auth-name" type="text" placeholder="이름 (가입 시)" class="rounded-lg border-outline-variant text-sm sm:col-span-2"/>
-                    <button id="dashboard-login-btn" type="button" class="rounded-lg bg-primary text-white text-sm font-bold px-4 py-2">로그인</button>
-                    <button id="dashboard-signup-btn" type="button" class="rounded-lg border border-primary text-primary text-sm font-bold px-4 py-2">교사 가입</button>
-                    <button id="dashboard-reset-password-btn" type="button" class="sm:col-span-2 text-xs font-bold text-on-surface-variant hover:text-primary">비밀번호 재설정 메일 보내기</button>
+                <div id="dashboard-auth-open" class="space-y-3">
+                    <button id="dashboard-open-login-btn" type="button" class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-extrabold text-white hover:opacity-90">
+                        <span class="material-symbols-outlined text-lg">login</span>
+                        교사 로그인
+                    </button>
+                    <p class="text-xs text-center text-on-surface-variant">승인된 교사와 마스터만 보드 대시보드를 사용할 수 있습니다.</p>
                 </div>
+
+                <div id="dashboard-auth-logged-out" class="hidden space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-sm font-extrabold">교사 로그인</p>
+                        <button id="dashboard-close-auth-btn" type="button" class="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-low" title="닫기">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 gap-2">
+                        <input id="dashboard-auth-email" type="email" placeholder="이메일" autocomplete="email" class="rounded-lg border-outline-variant text-sm"/>
+                        <input id="dashboard-auth-password" type="password" placeholder="비밀번호" autocomplete="current-password" class="rounded-lg border-outline-variant text-sm"/>
+                        <button id="dashboard-login-btn" type="button" class="rounded-lg bg-primary text-white text-sm font-bold px-4 py-2.5">로그인</button>
+                    </div>
+                    <button id="dashboard-reset-password-btn" type="button" class="w-full text-xs font-bold text-on-surface-variant hover:text-primary">비밀번호 재설정 메일 보내기</button>
+                    <div class="border-t border-outline-variant/50 pt-3 text-center">
+                        <p class="text-xs text-on-surface-variant">처음 방문한 교사라면 계정을 신청해 주세요.</p>
+                        <button id="dashboard-show-signup-btn" type="button" class="mt-2 text-sm font-extrabold text-primary hover:opacity-80">교사 가입하기</button>
+                    </div>
+                </div>
+
+                <div id="dashboard-auth-signup" class="hidden space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-sm font-extrabold">교사 가입</p>
+                        <button id="dashboard-show-login-btn" type="button" class="text-xs font-bold text-primary hover:opacity-80">로그인으로 돌아가기</button>
+                    </div>
+                    <div class="grid grid-cols-1 gap-2">
+                        <input id="dashboard-auth-name" type="text" placeholder="이름" autocomplete="name" class="rounded-lg border-outline-variant text-sm"/>
+                        <input id="dashboard-signup-email" type="email" placeholder="이메일" autocomplete="email" class="rounded-lg border-outline-variant text-sm"/>
+                        <input id="dashboard-signup-password" type="password" placeholder="비밀번호" autocomplete="new-password" class="rounded-lg border-outline-variant text-sm"/>
+                        <button id="dashboard-signup-btn" type="button" class="rounded-lg border border-primary text-primary text-sm font-bold px-4 py-2.5">가입 신청</button>
+                    </div>
+                    <p class="text-xs text-on-surface-variant">가입 후 마스터 승인이 완료되면 보드를 만들고 관리할 수 있습니다.</p>
+                </div>
+
                 <div id="dashboard-auth-logged-in" class="hidden">
                     <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
