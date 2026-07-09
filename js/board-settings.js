@@ -1,0 +1,55 @@
+(function (root, factory) {
+    const moduleApi = factory(root.BoardSettingsUtils);
+    if (typeof module === 'object' && module.exports) {
+        module.exports = moduleApi;
+    }
+    root.IdeaCanvasBoardSettings = moduleApi;
+})(typeof globalThis !== 'undefined' ? globalThis : window, function (boardSettingsUtils) {
+    const fallbackUtils = boardSettingsUtils || require('./board-settings-utils');
+
+    async function loadBoardSettingsFromServer(client, id, boardId = '') {
+        if (!client) throw new Error('Supabase client is not available');
+
+        let query = client
+            .from('board_settings')
+            .select('*');
+
+        query = boardId ? query.eq('board_id', boardId) : query.eq('id', id);
+
+        const { data, error } = await query.maybeSingle();
+
+        if (error) throw error;
+        return data ? fallbackUtils.normalizeBoardSettings(data) : null;
+    }
+
+    async function saveBoardSettingsToServer(client, currentSettings, nextSettings, now = () => new Date().toISOString(), boardId = '') {
+        if (!client) throw new Error('Supabase client is not available');
+
+        const normalized = fallbackUtils.normalizeBoardSettings({
+            ...currentSettings,
+            ...nextSettings,
+        });
+
+        const payload = {
+            id: normalized.id,
+            title: normalized.title,
+            auth_write: normalized.auth_write,
+            updated_at: now(),
+        };
+        if (boardId) payload.board_id = boardId;
+
+        const { data, error } = await client
+            .from('board_settings')
+            .upsert(payload)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return fallbackUtils.normalizeBoardSettings(data);
+    }
+
+    return {
+        loadBoardSettingsFromServer,
+        saveBoardSettingsToServer,
+    };
+});
