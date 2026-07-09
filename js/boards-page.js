@@ -39,7 +39,7 @@
                     <p class="text-xs text-on-surface-variant mt-2">보드 ID: ${escapeHtml(board.id)}</p>
                 </div>
                 <div class="flex flex-wrap gap-2 mt-auto">
-                    <a href="index.html?board_id=${encodeURIComponent(board.id)}" class="px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90">열기</a>
+                    <a href="board.html?board_id=${encodeURIComponent(board.id)}" class="px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90">열기</a>
                     <a href="board-admin.html?board_id=${encodeURIComponent(board.id)}" class="px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold hover:bg-surface-container-high">관리</a>
                     <button type="button" data-action="rename-board" data-board-id="${escapeHtml(board.id)}" class="px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold hover:bg-surface-container-high">이름 저장</button>
                     <button type="button" data-action="delete-board" data-board-id="${escapeHtml(board.id)}" class="px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold text-error hover:bg-red-50">삭제</button>

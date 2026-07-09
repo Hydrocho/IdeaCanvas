@@ -47,10 +47,10 @@
         if (elements.boardId) elements.boardId.textContent = currentBoardId || '선택된 보드 없음';
         if (elements.backToBoard) {
             elements.backToBoard.href = currentBoardId
-                ? `index.html?board_id=${encodeURIComponent(currentBoardId)}`
-                : 'boards.html';
+                ? `board.html?board_id=${encodeURIComponent(currentBoardId)}`
+                : 'index.html';
         }
-        if (elements.dashboard) elements.dashboard.href = 'boards.html';
+        if (elements.dashboard) elements.dashboard.href = 'index.html';
     }
 
     function renderSettings() {

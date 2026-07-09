@@ -155,7 +155,7 @@ async function loadAllData() {
     resetSectionsToDefault();
 
     if (!currentBoardId) {
-        window.location.href = 'boards.html';
+        window.location.href = 'index.html';
         return;
     }
 
@@ -570,7 +570,7 @@ function renderBoardNavigationLinks() {
     if (adminLink) {
         adminLink.href = currentBoardId
             ? `board-admin.html?board_id=${encodeURIComponent(currentBoardId)}`
-            : 'boards.html';
+            : 'index.html';
     }
 }
 
@@ -1850,7 +1850,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBoardNavigationLinks();
 
     if (!currentBoardId) {
-        window.location.href = 'boards.html';
+        window.location.href = 'index.html';
         return;
     }
 
