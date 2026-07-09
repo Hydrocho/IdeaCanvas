@@ -55,35 +55,37 @@
             </div>
         </header>
 
-        <section id="dashboard-auth-card" class="hidden fallback-card ml-auto mb-8 max-w-md p-4">
-            <div id="dashboard-auth-logged-out" class="hidden space-y-3">
-                <div class="flex items-center justify-between gap-3">
-                    <p class="text-sm font-extrabold">로그인</p>
-                    <button id="dashboard-close-auth-btn" type="button" class="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-low" title="닫기">
-                        <span class="material-symbols-outlined text-lg">close</span>
-                    </button>
+        <section id="dashboard-auth-card" class="hidden fixed inset-0 z-50 place-items-center bg-[#213145]/35 p-4 backdrop-blur-sm">
+            <div class="fallback-card w-full max-w-md rounded-xl bg-surface-container-lowest/95 p-5 shadow-2xl shadow-primary/10">
+                <div id="dashboard-auth-logged-out" class="hidden space-y-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-base font-extrabold">로그인</p>
+                        <button id="dashboard-close-auth-btn" type="button" class="rounded-full p-1 text-on-surface-variant hover:bg-surface-container-low" title="닫기">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 gap-3">
+                        <input id="dashboard-auth-email" type="email" placeholder="이메일" autocomplete="email" class="rounded-lg border-outline-variant bg-surface-container-low text-sm focus:border-primary focus:ring-primary/20"/>
+                        <input id="dashboard-auth-password" type="password" placeholder="비밀번호" autocomplete="current-password" class="rounded-lg border-outline-variant bg-surface-container-low text-sm focus:border-primary focus:ring-primary/20"/>
+                        <button id="dashboard-login-btn" type="button" class="rounded-lg bg-primary px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-primary/20 hover:opacity-90">로그인</button>
+                    </div>
+                    <div class="flex items-center justify-between gap-3 border-t border-outline-variant/50 pt-3">
+                        <button id="dashboard-reset-password-btn" type="button" class="text-xs font-bold text-on-surface-variant hover:text-primary">비밀번호 재설정</button>
+                        <button id="dashboard-show-signup-btn" type="button" class="text-xs font-bold text-primary hover:opacity-80">교사 가입</button>
+                    </div>
                 </div>
-                <div class="grid grid-cols-1 gap-2">
-                    <input id="dashboard-auth-email" type="email" placeholder="이메일" autocomplete="email" class="rounded-lg border-outline-variant text-sm"/>
-                    <input id="dashboard-auth-password" type="password" placeholder="비밀번호" autocomplete="current-password" class="rounded-lg border-outline-variant text-sm"/>
-                    <button id="dashboard-login-btn" type="button" class="rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white">로그인</button>
-                </div>
-                <div class="flex items-center justify-between gap-3 border-t border-outline-variant/50 pt-3">
-                    <button id="dashboard-reset-password-btn" type="button" class="text-xs font-bold text-on-surface-variant hover:text-primary">비밀번호 재설정</button>
-                    <button id="dashboard-show-signup-btn" type="button" class="text-xs font-bold text-primary hover:opacity-80">교사 가입</button>
-                </div>
-            </div>
 
-            <div id="dashboard-auth-signup" class="hidden space-y-3">
-                <div class="flex items-center justify-between gap-3">
-                    <p class="text-sm font-extrabold">교사 가입</p>
-                    <button id="dashboard-show-login-btn" type="button" class="text-xs font-bold text-primary hover:opacity-80">로그인</button>
-                </div>
-                <div class="grid grid-cols-1 gap-2">
-                    <input id="dashboard-auth-name" type="text" placeholder="이름" autocomplete="name" class="rounded-lg border-outline-variant text-sm"/>
-                    <input id="dashboard-signup-email" type="email" placeholder="이메일" autocomplete="email" class="rounded-lg border-outline-variant text-sm"/>
-                    <input id="dashboard-signup-password" type="password" placeholder="비밀번호" autocomplete="new-password" class="rounded-lg border-outline-variant text-sm"/>
-                    <button id="dashboard-signup-btn" type="button" class="rounded-lg border border-primary px-4 py-2.5 text-sm font-bold text-primary">가입 신청</button>
+                <div id="dashboard-auth-signup" class="hidden space-y-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-base font-extrabold">교사 가입</p>
+                        <button id="dashboard-show-login-btn" type="button" class="text-xs font-bold text-primary hover:opacity-80">로그인</button>
+                    </div>
+                    <div class="grid grid-cols-1 gap-3">
+                        <input id="dashboard-auth-name" type="text" placeholder="이름" autocomplete="name" class="rounded-lg border-outline-variant bg-surface-container-low text-sm focus:border-primary focus:ring-primary/20"/>
+                        <input id="dashboard-signup-email" type="email" placeholder="이메일" autocomplete="email" class="rounded-lg border-outline-variant bg-surface-container-low text-sm focus:border-primary focus:ring-primary/20"/>
+                        <input id="dashboard-signup-password" type="password" placeholder="비밀번호" autocomplete="new-password" class="rounded-lg border-outline-variant bg-surface-container-low text-sm focus:border-primary focus:ring-primary/20"/>
+                        <button id="dashboard-signup-btn" type="button" class="rounded-lg border border-primary px-4 py-3 text-sm font-extrabold text-primary hover:bg-surface-container-low">가입 신청</button>
+                    </div>
                 </div>
             </div>
         </section>

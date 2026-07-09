@@ -145,6 +145,7 @@
         elements.authLoggedIn?.classList.toggle('hidden', panelMode !== 'logged_in');
         elements.authLoggedIn?.classList.toggle('flex', panelMode === 'logged_in');
         elements.authCard?.classList.toggle('hidden', panelMode !== 'login' && panelMode !== 'signup');
+        elements.authCard?.classList.toggle('grid', panelMode === 'login' || panelMode === 'signup');
         elements.authLoggedOut?.classList.toggle('hidden', panelMode !== 'login');
         elements.authSignup?.classList.toggle('hidden', panelMode !== 'signup');
 
@@ -520,6 +521,11 @@
         if (elements.searchInput) elements.searchInput.addEventListener('input', handleSearchInput);
         if (elements.openLoginButton) elements.openLoginButton.addEventListener('click', () => showAuthPanel('login'));
         if (elements.openSignupButton) elements.openSignupButton.addEventListener('click', () => showAuthPanel('signup'));
+        if (elements.authCard) {
+            elements.authCard.addEventListener('click', (event) => {
+                if (event.target === elements.authCard) showAuthPanel('closed');
+            });
+        }
         if (elements.closeAuthButton) elements.closeAuthButton.addEventListener('click', () => showAuthPanel('closed'));
         if (elements.showSignupButton) elements.showSignupButton.addEventListener('click', () => showAuthPanel('signup'));
         if (elements.showLoginButton) elements.showLoginButton.addEventListener('click', () => showAuthPanel('login'));
