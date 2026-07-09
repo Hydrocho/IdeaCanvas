@@ -62,6 +62,16 @@
         return mode === 'login' || mode === 'signup' ? mode : 'closed';
     }
 
+    function validatePasswordConfirmation(password, confirmation) {
+        if (!password || !confirmation) {
+            return { valid: false, message: '비밀번호를 입력해 주세요.' };
+        }
+        if (password !== confirmation) {
+            return { valid: false, message: '비밀번호가 일치하지 않습니다.' };
+        }
+        return { valid: true, message: '' };
+    }
+
     function getProfileInsertCandidates(user, displayName) {
         if (!user?.id) return [];
         const normalizedName = typeof displayName === 'string' && displayName.trim()
@@ -96,5 +106,6 @@
         getProfileInsertCandidates,
         getDisplayName,
         resolveAuthPanelMode,
+        validatePasswordConfirmation,
     };
 });

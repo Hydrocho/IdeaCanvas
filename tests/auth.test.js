@@ -10,6 +10,7 @@ const {
   canUseDashboard,
   canWriteToBoard,
   resolveAuthPanelMode,
+  validatePasswordConfirmation,
   getProfileInsertCandidates,
   getDisplayName,
 } = require('../js/auth');
@@ -74,6 +75,21 @@ test('resolves dashboard auth panel modes', () => {
   assert.equal(resolveAuthPanelMode('signup', null), 'signup');
   assert.equal(resolveAuthPanelMode('unknown', null), 'closed');
   assert.equal(resolveAuthPanelMode('login', { id: 'u1' }), 'logged_in');
+});
+
+test('validates password confirmation for signup', () => {
+  assert.deepEqual(validatePasswordConfirmation('', ''), {
+    valid: false,
+    message: '비밀번호를 입력해 주세요.',
+  });
+  assert.deepEqual(validatePasswordConfirmation('123456', '654321'), {
+    valid: false,
+    message: '비밀번호가 일치하지 않습니다.',
+  });
+  assert.deepEqual(validatePasswordConfirmation('123456', '123456'), {
+    valid: true,
+    message: '',
+  });
 });
 
 test('builds primary-master then pending-teacher profile insert candidates', () => {

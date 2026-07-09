@@ -31,6 +31,7 @@
         nameInput: document.getElementById('dashboard-auth-name'),
         signupEmailInput: document.getElementById('dashboard-signup-email'),
         signupPasswordInput: document.getElementById('dashboard-signup-password'),
+        signupPasswordConfirmInput: document.getElementById('dashboard-signup-password-confirm'),
         loginButton: document.getElementById('dashboard-login-btn'),
         signupButton: document.getElementById('dashboard-signup-btn'),
         closeAuthButton: document.getElementById('dashboard-close-auth-btn'),
@@ -402,9 +403,15 @@
     async function handleSignup() {
         const email = elements.signupEmailInput?.value.trim();
         const password = elements.signupPasswordInput?.value.trim();
+        const passwordConfirm = elements.signupPasswordConfirmInput?.value.trim();
         const displayName = elements.nameInput?.value.trim();
-        if (!email || !password || !displayName) {
+        if (!email || !password || !passwordConfirm || !displayName) {
             alert('이메일, 비밀번호, 이름을 모두 입력해 주세요.');
+            return;
+        }
+        const passwordConfirmation = authUtils.validatePasswordConfirmation(password, passwordConfirm);
+        if (!passwordConfirmation.valid) {
+            alert(passwordConfirmation.message);
             return;
         }
         const { error } = await supabaseClient.auth.signUp({
