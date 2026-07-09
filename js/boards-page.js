@@ -15,14 +15,14 @@
     const elements = {
         list: document.getElementById('boards-list'),
         status: document.getElementById('boards-status'),
-        detail: document.getElementById('boards-connection-detail'),
-        gate: document.getElementById('dashboard-gate'),
+        landingPreview: document.getElementById('landing-preview'),
         workspace: document.getElementById('dashboard-workspace'),
         createButton: document.getElementById('create-board-btn'),
         searchInput: document.getElementById('board-search-input'),
-        authStatus: document.getElementById('dashboard-auth-status'),
-        authOpen: document.getElementById('dashboard-auth-open'),
+        authActions: document.getElementById('dashboard-auth-actions'),
+        authCard: document.getElementById('dashboard-auth-card'),
         openLoginButton: document.getElementById('dashboard-open-login-btn'),
+        openSignupButton: document.getElementById('dashboard-open-signup-btn'),
         authLoggedOut: document.getElementById('dashboard-auth-logged-out'),
         authSignup: document.getElementById('dashboard-auth-signup'),
         authLoggedIn: document.getElementById('dashboard-auth-logged-in'),
@@ -51,9 +51,8 @@
         if (elements.status) elements.status.textContent = message || '';
     }
 
-    function setConnected(connected, message) {
+    function setConnected(connected) {
         isConnected = connected;
-        if (elements.detail) elements.detail.textContent = message;
         updateCreateButtonState();
     }
 
@@ -140,25 +139,19 @@
         const panelMode = authUtils.resolveAuthPanelMode(authPanelMode, currentUser);
         authPanelMode = panelMode === 'logged_in' ? 'closed' : panelMode;
 
-        elements.gate?.classList.toggle('hidden', dashboardAllowed);
+        elements.landingPreview?.classList.toggle('hidden', dashboardAllowed);
         elements.workspace?.classList.toggle('hidden', !dashboardAllowed);
-        elements.authOpen?.classList.toggle('hidden', panelMode !== 'closed');
+        elements.authActions?.classList.toggle('hidden', panelMode === 'logged_in');
+        elements.authLoggedIn?.classList.toggle('hidden', panelMode !== 'logged_in');
+        elements.authLoggedIn?.classList.toggle('flex', panelMode === 'logged_in');
+        elements.authCard?.classList.toggle('hidden', panelMode !== 'login' && panelMode !== 'signup');
         elements.authLoggedOut?.classList.toggle('hidden', panelMode !== 'login');
         elements.authSignup?.classList.toggle('hidden', panelMode !== 'signup');
-        elements.authLoggedIn?.classList.toggle('hidden', panelMode !== 'logged_in');
 
-        if (currentUser) {
-            if (elements.userDisplay) {
-                elements.userDisplay.textContent = `${displayName || currentUser.email} (${getRoleLabel()})`;
-            }
-            if (elements.authStatus) {
-                elements.authStatus.textContent = dashboardAllowed
-                    ? '보드 생성과 관리 권한이 활성화되었습니다.'
-                    : '교사 승인 대기 중입니다. 마스터 승인 후 보드를 만들 수 있습니다.';
-            }
-        } else {
-            if (elements.userDisplay) elements.userDisplay.textContent = '';
-            if (elements.authStatus) elements.authStatus.textContent = '교사로 로그인하면 보드 대시보드를 사용할 수 있습니다.';
+        if (currentUser && elements.userDisplay) {
+            elements.userDisplay.textContent = `${displayName || currentUser.email} (${getRoleLabel()})`;
+        } else if (elements.userDisplay) {
+            elements.userDisplay.textContent = '';
         }
 
         if (!dashboardAllowed) {
@@ -229,13 +222,13 @@
         }
         if (!supabaseClient) {
             boards = [];
-            setConnected(false, 'supabase_config.js에 Supabase URL/key를 설정하면 보드를 서버에 저장할 수 있습니다.');
+            setConnected(false);
             renderBoards();
             return;
         }
 
         boards = await boardsApi.loadBoardsFromServer(supabaseClient);
-        setConnected(true, 'Supabase에 연결되었습니다. 보드는 서버에 저장됩니다.');
+        setConnected(true);
         renderBoards();
         setStatus('');
     }
@@ -520,12 +513,13 @@
             typeof supabase !== 'undefined' ? supabase : null
         );
         supabaseClient = connection.client;
-        isConnected = Boolean(supabaseClient);
+        setConnected(Boolean(supabaseClient));
 
         if (elements.createButton) elements.createButton.addEventListener('click', createBoard);
         if (elements.list) elements.list.addEventListener('click', handleListClick);
         if (elements.searchInput) elements.searchInput.addEventListener('input', handleSearchInput);
         if (elements.openLoginButton) elements.openLoginButton.addEventListener('click', () => showAuthPanel('login'));
+        if (elements.openSignupButton) elements.openSignupButton.addEventListener('click', () => showAuthPanel('signup'));
         if (elements.closeAuthButton) elements.closeAuthButton.addEventListener('click', () => showAuthPanel('closed'));
         if (elements.showSignupButton) elements.showSignupButton.addEventListener('click', () => showAuthPanel('signup'));
         if (elements.showLoginButton) elements.showLoginButton.addEventListener('click', () => showAuthPanel('login'));
@@ -537,13 +531,6 @@
         if (elements.accountsTabButton) elements.accountsTabButton.addEventListener('click', () => showTab('accounts'));
         if (elements.accountsPanel) elements.accountsPanel.addEventListener('click', handleListClick);
 
-        if (!supabaseClient) {
-            setConnected(false, 'supabase_config.js에 Supabase URL/key를 설정해 주세요.');
-            renderAuthState();
-            return;
-        }
-
-        setConnected(true, 'Supabase에 연결되었습니다. 교사 로그인 후 보드를 관리할 수 있습니다.');
         await initAuth();
         if (canUseDashboard()) {
             await loadBoards();
@@ -571,7 +558,6 @@
     document.addEventListener('DOMContentLoaded', () => {
         init().catch((error) => {
             console.error('Dashboard init failed:', error);
-            setConnected(false, '대시보드를 초기화하지 못했습니다. 설정과 Supabase 연결을 확인해 주세요.');
             renderAuthState();
         });
     });
