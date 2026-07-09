@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>IdeaCanvas | 보드 대시보드</title>
+    <title>Idea Canvas</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -27,28 +27,86 @@
         }
       };
     </script>
+    <style>
+      body { margin: 0; background: #f8f9ff; color: #0b1c30; font-family: Inter, sans-serif; }
+      main { box-sizing: border-box; max-width: 72rem; margin: 0 auto; padding: 2rem 1.25rem; }
+      header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+      h1 { margin: 0; font-size: 2.25rem; line-height: 1.1; font-weight: 800; }
+      button, a { font-family: inherit; }
+      .fallback-card { border: 1px solid rgba(204, 195, 216, 0.6); border-radius: 0.5rem; background: #fff; box-shadow: 0 1px 2px rgba(11, 28, 48, 0.06); }
+      #boards-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+      #boards-list article { overflow: hidden; border: 1px solid rgba(204, 195, 216, 0.6); border-radius: 0.5rem; background: #fff; box-shadow: 0 1px 2px rgba(11, 28, 48, 0.06); }
+      #boards-list article input { box-sizing: border-box; width: 100%; border: 0; border-bottom: 1px solid transparent; background: transparent; color: #0b1c30; font-size: 1.25rem; font-weight: 800; }
+      #boards-list article input:focus { border-bottom-color: #630ed4; outline: none; }
+      @media (max-width: 640px) { header { flex-direction: column; } h1 { font-size: 2rem; } }
+    </style>
 </head>
 <body class="bg-surface text-on-surface font-sans min-h-screen">
-    <main class="max-w-5xl mx-auto px-5 py-8">
-        <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <main class="max-w-6xl mx-auto px-5 py-8">
+        <header class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-6">
             <div>
-                <p class="text-xs font-semibold text-primary uppercase tracking-wide">IdeaCanvas</p>
-                <h1 class="text-3xl font-extrabold tracking-tight">보드 대시보드</h1>
+                <h1 class="text-4xl font-extrabold tracking-tight">Idea Canvas</h1>
                 <p id="boards-connection-detail" class="text-sm text-on-surface-variant mt-2">Supabase 연결을 확인하는 중입니다.</p>
+                <p id="dashboard-auth-status" class="text-sm text-on-surface-variant mt-1"></p>
             </div>
-            <button id="create-board-btn" type="button" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-white text-sm font-bold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
-                <span class="material-symbols-outlined text-lg">add</span>
-                새 보드
-            </button>
+            <section class="fallback-card p-4 w-full lg:w-[28rem]">
+                <div id="dashboard-auth-logged-out" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input id="dashboard-auth-email" type="email" placeholder="이메일" class="rounded-lg border-outline-variant text-sm"/>
+                    <input id="dashboard-auth-password" type="password" placeholder="비밀번호" class="rounded-lg border-outline-variant text-sm"/>
+                    <input id="dashboard-auth-name" type="text" placeholder="이름 (가입 시)" class="rounded-lg border-outline-variant text-sm sm:col-span-2"/>
+                    <button id="dashboard-login-btn" type="button" class="rounded-lg bg-primary text-white text-sm font-bold px-4 py-2">로그인</button>
+                    <button id="dashboard-signup-btn" type="button" class="rounded-lg border border-primary text-primary text-sm font-bold px-4 py-2">교사 가입</button>
+                    <button id="dashboard-reset-password-btn" type="button" class="sm:col-span-2 text-xs font-bold text-on-surface-variant hover:text-primary">비밀번호 재설정 메일 보내기</button>
+                </div>
+                <div id="dashboard-auth-logged-in" class="hidden">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs text-on-surface-variant">로그인 계정</p>
+                            <p id="dashboard-user-display" class="font-bold text-sm truncate"></p>
+                        </div>
+                        <button id="dashboard-logout-btn" type="button" class="rounded-lg border border-outline-variant px-3 py-2 text-xs font-bold">로그아웃</button>
+                    </div>
+                </div>
+            </section>
         </header>
 
-        <section id="boards-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></section>
-        <p id="boards-status" class="text-sm text-on-surface-variant mt-5"></p>
+        <nav class="flex gap-2 mb-6">
+            <button id="boards-tab-btn" type="button" data-tab="boards" class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold">보드</button>
+            <button id="accounts-tab-btn" type="button" data-tab="accounts" class="hidden px-4 py-2 rounded-lg border border-outline-variant text-sm font-bold">계정 관리</button>
+        </nav>
+
+        <section id="boards-panel">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                <div class="relative max-w-md w-full">
+                    <label class="sr-only" for="board-search-input">보드 검색</label>
+                    <span class="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xl text-on-surface-variant">search</span>
+                    <input id="board-search-input" type="search" placeholder="보드 검색" class="w-full rounded-lg border-outline-variant bg-surface-container-lowest pl-10 pr-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:ring-primary"/>
+                </div>
+                <button id="create-board-btn" type="button" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-primary text-white text-sm font-bold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span class="material-symbols-outlined text-lg">add</span>
+                    새 보드
+                </button>
+            </div>
+            <section id="boards-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></section>
+            <p id="boards-status" class="text-sm text-on-surface-variant mt-5"></p>
+        </section>
+
+        <section id="accounts-panel" class="hidden space-y-5">
+            <div class="fallback-card p-5">
+                <h2 class="text-lg font-extrabold mb-4">승인 대기 교사</h2>
+                <div id="pending-teachers-list" class="space-y-2 text-sm text-on-surface-variant"></div>
+            </div>
+            <div class="fallback-card p-5">
+                <h2 class="text-lg font-extrabold mb-4">교사 및 마스터</h2>
+                <div id="approved-teachers-list" class="space-y-2 text-sm text-on-surface-variant"></div>
+            </div>
+        </section>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase_config.js"></script>
     <script src="js/supabase-client.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/boards.js"></script>
     <script src="js/boards-page.js"></script>
 </body>

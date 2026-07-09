@@ -55,7 +55,7 @@
 
     function renderSettings() {
         if (elements.title) elements.title.value = currentBoardSettings.title;
-        if (elements.authWrite) elements.authWrite.checked = currentBoardSettings.auth_write;
+        if (elements.authWrite) elements.authWrite.checked = currentBoardSettings.write_enabled;
     }
 
     function renderSections() {
@@ -157,7 +157,7 @@
 
         const nextSettings = {
             title: elements.title.value,
-            auth_write: elements.authWrite.checked,
+            write_enabled: elements.authWrite.checked,
         };
 
         if (elements.saveButton) elements.saveButton.disabled = true;

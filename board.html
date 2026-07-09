@@ -506,10 +506,12 @@
                 <div id="auth-logged-out" class="space-y-2.5">
                     <input id="auth-email" type="email" placeholder="이메일 주소" class="w-full px-3 py-2 bg-slate-50 border border-outline-variant/30 rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary"/>
                     <input id="auth-password" type="password" placeholder="비밀번호" class="w-full px-3 py-2 bg-slate-50 border border-outline-variant/30 rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary"/>
+                    <input id="auth-display-name" type="text" placeholder="이름 (가입 시)" class="w-full px-3 py-2 bg-slate-50 border border-outline-variant/30 rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary"/>
                     <div class="flex gap-2">
                         <button type="button" id="btn-login" class="flex-1 bg-primary text-on-primary py-2 rounded-lg text-xs font-semibold hover:bg-primary/95 transition-all">로그인</button>
-                        <button type="button" id="btn-signup" class="flex-1 border border-primary text-primary py-2 rounded-lg text-xs font-semibold hover:bg-primary/5 transition-all">회원가입</button>
+                        <button type="button" id="btn-signup" class="flex-1 border border-primary text-primary py-2 rounded-lg text-xs font-semibold hover:bg-primary/5 transition-all">교사 가입</button>
                     </div>
+                    <button type="button" id="btn-reset-password" class="w-full text-[11px] font-semibold text-on-surface-variant hover:text-primary">비밀번호 재설정 메일 보내기</button>
                 </div>
                 
                 <!-- 로그인 상태 표시 -->
@@ -547,11 +549,10 @@
                     </label>
                 </div>
 
-                <!-- 글쓰기 권한 로그인 전용 토글 -->
+                <!-- 글쓰기 기능 토글 -->
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="font-semibold text-xs text-on-surface">회원 전용 글쓰기 허용</p>
-                        <p class="text-[10px] text-on-surface-variant">로그인한 사람만 글을 씁니다.</p>
+                        <p class="font-semibold text-xs text-on-surface">글쓰기 기능</p>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer select-none">
                         <input id="toggle-auth-write" class="sr-only peer" type="checkbox"/>
@@ -567,6 +568,7 @@
     <!-- Application core logic script -->
     <script src="js/supabase_config.js"></script>
     <script src="js/supabase-client.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/boards.js"></script>
     <script src="js/section-utils.js"></script>
     <script src="js/sections.js"></script>

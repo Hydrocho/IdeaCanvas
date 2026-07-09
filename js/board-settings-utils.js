@@ -8,8 +8,18 @@
     const DEFAULT_BOARD_SETTINGS = {
         id: 'default',
         title: '새로운 생각',
-        auth_write: false,
+        write_enabled: true,
     };
+
+    function resolveWriteEnabled(settings) {
+        if (settings.write_enabled === true || settings.write_enabled === false) {
+            return settings.write_enabled;
+        }
+        if (settings.auth_write === true || settings.auth_write === false) {
+            return !settings.auth_write;
+        }
+        return DEFAULT_BOARD_SETTINGS.write_enabled;
+    }
 
     function normalizeBoardSettings(settings) {
         if (!settings || typeof settings !== 'object') {
@@ -23,7 +33,7 @@
         return {
             id: settings.id || DEFAULT_BOARD_SETTINGS.id,
             title,
-            auth_write: settings.auth_write === true,
+            write_enabled: resolveWriteEnabled(settings),
         };
     }
 

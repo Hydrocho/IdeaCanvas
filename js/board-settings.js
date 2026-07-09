@@ -33,7 +33,7 @@
         const payload = {
             id: normalized.id,
             title: normalized.title,
-            auth_write: normalized.auth_write,
+            write_enabled: normalized.write_enabled,
             updated_at: now(),
         };
         if (boardId) payload.board_id = boardId;

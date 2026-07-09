@@ -1,15 +1,39 @@
 (function () {
     const supabaseUtils = globalThis.IdeaCanvasSupabase;
     const boardsApi = globalThis.IdeaCanvasBoards;
+    const authUtils = globalThis.IdeaCanvasAuth;
 
     let supabaseClient = null;
     let boards = [];
+    let profiles = [];
+    let searchQuery = '';
+    let isConnected = false;
+    let currentUser = null;
+    let currentProfile = null;
 
     const elements = {
         list: document.getElementById('boards-list'),
         status: document.getElementById('boards-status'),
         detail: document.getElementById('boards-connection-detail'),
         createButton: document.getElementById('create-board-btn'),
+        searchInput: document.getElementById('board-search-input'),
+        authStatus: document.getElementById('dashboard-auth-status'),
+        authLoggedOut: document.getElementById('dashboard-auth-logged-out'),
+        authLoggedIn: document.getElementById('dashboard-auth-logged-in'),
+        emailInput: document.getElementById('dashboard-auth-email'),
+        passwordInput: document.getElementById('dashboard-auth-password'),
+        nameInput: document.getElementById('dashboard-auth-name'),
+        loginButton: document.getElementById('dashboard-login-btn'),
+        signupButton: document.getElementById('dashboard-signup-btn'),
+        resetPasswordButton: document.getElementById('dashboard-reset-password-btn'),
+        logoutButton: document.getElementById('dashboard-logout-btn'),
+        userDisplay: document.getElementById('dashboard-user-display'),
+        boardsTabButton: document.getElementById('boards-tab-btn'),
+        accountsTabButton: document.getElementById('accounts-tab-btn'),
+        boardsPanel: document.getElementById('boards-panel'),
+        accountsPanel: document.getElementById('accounts-panel'),
+        pendingTeachersList: document.getElementById('pending-teachers-list'),
+        approvedTeachersList: document.getElementById('approved-teachers-list'),
     };
 
     function setStatus(message) {
@@ -17,58 +41,244 @@
     }
 
     function setConnected(connected, message) {
+        isConnected = connected;
         if (elements.detail) elements.detail.textContent = message;
-        if (elements.createButton) elements.createButton.disabled = !connected;
+        updateCreateButtonState();
+    }
+
+    function updateCreateButtonState() {
+        if (!elements.createButton) return;
+        elements.createButton.disabled = !isConnected || !authUtils.canCreateBoard(currentProfile);
+        elements.createButton.title = authUtils.canCreateBoard(currentProfile)
+            ? ''
+            : '승인된 교사 또는 마스터만 새 보드를 만들 수 있습니다.';
+    }
+
+    function renderEmptyState(message, showCreateButton = true) {
+        const canCreate = showCreateButton && authUtils.canCreateBoard(currentProfile);
+        const createButtonMarkup = canCreate
+            ? '<button type="button" data-action="create-board" class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:opacity-90"><span class="material-symbols-outlined text-lg">add</span>새 보드 만들기</button>'
+            : '';
+
+        elements.list.innerHTML = `
+            <div class="md:col-span-2 xl:col-span-3 rounded-lg border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-12 text-center">
+                <span class="material-symbols-outlined text-4xl text-primary">dashboard_customize</span>
+                <p class="mt-3 text-base font-bold text-on-surface">${message}</p>
+                <div class="mt-5">${createButtonMarkup}</div>
+            </div>
+        `;
     }
 
     function renderBoards() {
         if (!elements.list) return;
 
-        if (!boards.length) {
-            elements.list.innerHTML = '<div class="rounded-xl bg-surface-container-lowest border border-outline-variant/50 p-6 text-sm text-on-surface-variant">아직 보드가 없습니다. 새 보드를 만들어 시작하세요.</div>';
+        const visibleBoards = boardsApi.filterBoardsByQuery(boards, searchQuery);
+
+        if (!visibleBoards.length) {
+            const message = boards.length ? '검색 결과가 없습니다' : '아직 보드가 없습니다';
+            renderEmptyState(message, isConnected && !searchQuery);
             return;
         }
 
         elements.list.innerHTML = '';
-        boards.forEach((board) => {
+        visibleBoards.forEach((board) => {
             const card = document.createElement('article');
-            card.className = 'rounded-xl bg-surface-container-lowest border border-outline-variant/50 p-5 flex flex-col gap-4';
+            card.className = 'group overflow-hidden rounded-lg bg-surface-container-lowest border border-outline-variant/60 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md';
             card.innerHTML = `
-                <div>
-                    <input data-board-id="${escapeHtml(board.id)}" class="board-title-input w-full text-lg font-bold bg-transparent border-b border-transparent hover:border-outline-variant focus:border-primary focus:ring-0 outline-none px-0 py-1" value="${escapeHtml(board.title)}"/>
-                    <p class="text-xs text-on-surface-variant mt-2">보드 ID: ${escapeHtml(board.id)}</p>
-                </div>
-                <div class="flex flex-wrap gap-2 mt-auto">
-                    <a href="board.html?board_id=${encodeURIComponent(board.id)}" class="px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90">열기</a>
-                    <a href="board-admin.html?board_id=${encodeURIComponent(board.id)}" class="px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold hover:bg-surface-container-high">관리</a>
-                    <button type="button" data-action="rename-board" data-board-id="${escapeHtml(board.id)}" class="px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold hover:bg-surface-container-high">이름 저장</button>
-                    <button type="button" data-action="delete-board" data-board-id="${escapeHtml(board.id)}" class="px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold text-error hover:bg-red-50">삭제</button>
+                <div class="h-1 bg-primary"></div>
+                <div class="p-5 flex min-h-48 flex-col gap-5">
+                    <div>
+                        <input data-board-id="${escapeHtml(board.id)}" class="board-title-input w-full text-xl font-extrabold bg-transparent border-b border-transparent hover:border-outline-variant focus:border-primary focus:ring-0 outline-none px-0 py-1" value="${escapeHtml(board.title)}" aria-label="보드 이름"/>
+                    </div>
+                    <div class="mt-auto flex flex-wrap gap-2">
+                        <a href="board.html?board_id=${encodeURIComponent(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90">
+                            <span class="material-symbols-outlined text-base">open_in_new</span>
+                            열기
+                        </a>
+                        <a href="board-admin.html?board_id=${encodeURIComponent(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold hover:bg-surface-container-high">
+                            <span class="material-symbols-outlined text-base">settings</span>
+                            관리
+                        </a>
+                        <button type="button" data-action="rename-board" data-board-id="${escapeHtml(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold hover:bg-surface-container-high">
+                            <span class="material-symbols-outlined text-base">edit</span>
+                            이름 변경
+                        </button>
+                        <button type="button" data-action="delete-board" data-board-id="${escapeHtml(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold text-error hover:bg-red-50">
+                            <span class="material-symbols-outlined text-base">delete</span>
+                            삭제
+                        </button>
+                    </div>
                 </div>
             `;
             elements.list.appendChild(card);
         });
     }
 
+    function renderAuthState() {
+        const displayName = authUtils.getDisplayName(currentProfile, currentUser);
+        if (currentUser) {
+            elements.authLoggedOut?.classList.add('hidden');
+            elements.authLoggedIn?.classList.remove('hidden');
+            if (elements.userDisplay) {
+                const roleLabel = currentProfile?.is_master
+                    ? '마스터'
+                    : currentProfile?.role === 'teacher'
+                        ? '교사'
+                        : '승인 대기';
+                elements.userDisplay.textContent = `${displayName || currentUser.email} (${roleLabel})`;
+            }
+            if (elements.authStatus) {
+                elements.authStatus.textContent = currentProfile?.role === 'teacher' || currentProfile?.is_master
+                    ? '보드 생성과 관리 권한이 활성화되었습니다.'
+                    : '교사 승인 대기 중입니다. 마스터 승인 후 보드를 만들 수 있습니다.';
+            }
+        } else {
+            elements.authLoggedOut?.classList.remove('hidden');
+            elements.authLoggedIn?.classList.add('hidden');
+            if (elements.userDisplay) elements.userDisplay.textContent = '';
+            if (elements.authStatus) elements.authStatus.textContent = '교사는 로그인 후 보드를 만들 수 있습니다.';
+        }
+
+        if (elements.accountsTabButton) {
+            elements.accountsTabButton.classList.toggle('hidden', !authUtils.isMaster(currentProfile));
+        }
+        if (!authUtils.isMaster(currentProfile)) showTab('boards');
+        updateCreateButtonState();
+        renderBoards();
+        renderAccounts();
+    }
+
+    async function loadCurrentProfile() {
+        currentProfile = null;
+        if (!supabaseClient || !currentUser) return;
+
+        const { data, error } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+
+        if (error) throw error;
+        currentProfile = authUtils.normalizeProfile(data);
+    }
+
+    async function ensureCurrentProfile() {
+        if (!supabaseClient || !currentUser || currentProfile) return;
+        const displayName = currentUser.user_metadata?.display_name || elements.nameInput?.value || '';
+        const candidates = authUtils.getProfileInsertCandidates(currentUser, displayName);
+
+        for (const candidate of candidates) {
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .insert([candidate])
+                .select()
+                .single();
+            if (!error) {
+                currentProfile = authUtils.normalizeProfile(data);
+                return;
+            }
+        }
+    }
+
+    async function refreshSessionProfile() {
+        if (!supabaseClient) return;
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        currentUser = session?.user || null;
+        if (currentUser) {
+            await loadCurrentProfile();
+            await ensureCurrentProfile();
+        } else {
+            currentProfile = null;
+        }
+        renderAuthState();
+    }
+
     async function loadBoards() {
         if (!supabaseClient) {
             boards = [];
-            renderBoards();
             setConnected(false, 'supabase_config.js의 Supabase URL/key를 설정하면 보드를 서버에 저장할 수 있습니다.');
+            renderBoards();
             return;
         }
 
         boards = await boardsApi.loadBoardsFromServer(supabaseClient);
-        renderBoards();
         setConnected(true, 'Supabase에 연결되었습니다. 보드는 서버에 저장됩니다.');
+        renderBoards();
         setStatus('');
     }
 
+    async function loadAccounts() {
+        if (!supabaseClient || !authUtils.isMaster(currentProfile)) {
+            profiles = [];
+            renderAccounts();
+            return;
+        }
+        const { data, error } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: true });
+        if (error) throw error;
+        profiles = (data || []).map(authUtils.normalizeProfile).filter(Boolean);
+        renderAccounts();
+    }
+
+    function renderAccounts() {
+        if (!elements.pendingTeachersList || !elements.approvedTeachersList) return;
+        if (!authUtils.isMaster(currentProfile)) {
+            elements.pendingTeachersList.innerHTML = '';
+            elements.approvedTeachersList.innerHTML = '';
+            return;
+        }
+
+        const pending = profiles.filter(profile => profile.role === 'teacher_pending');
+        const approved = profiles.filter(profile => profile.role === 'teacher');
+
+        elements.pendingTeachersList.innerHTML = pending.length
+            ? pending.map(profile => renderProfileRow(profile, 'pending')).join('')
+            : '<p>승인 대기 중인 교사가 없습니다.</p>';
+
+        elements.approvedTeachersList.innerHTML = approved.length
+            ? approved.map(profile => renderProfileRow(profile, 'approved')).join('')
+            : '<p>승인된 교사가 없습니다.</p>';
+    }
+
+    function renderProfileRow(profile, group) {
+        const masterBadge = profile.is_primary_master
+            ? '<span class="text-xs font-bold text-primary">Primary Master</span>'
+            : profile.is_master
+                ? '<span class="text-xs font-bold text-primary">Master</span>'
+                : '';
+        const approveButton = group === 'pending'
+            ? `<button type="button" data-action="approve-teacher" data-user-id="${escapeHtml(profile.user_id)}" class="px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold">승인</button>`
+            : '';
+        const masterButton = group === 'approved' && !profile.is_primary_master
+            ? profile.is_master
+                ? `<button type="button" data-action="revoke-master" data-user-id="${escapeHtml(profile.user_id)}" class="px-3 py-2 rounded-lg border border-outline-variant text-xs font-bold">마스터 해제</button>`
+                : `<button type="button" data-action="grant-master" data-user-id="${escapeHtml(profile.user_id)}" class="px-3 py-2 rounded-lg border border-outline-variant text-xs font-bold">마스터 부여</button>`
+            : '';
+
+        return `
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-outline-variant/50 bg-white px-4 py-3">
+                <div>
+                    <p class="font-bold text-on-surface">${escapeHtml(profile.display_name || '이름 없음')}</p>
+                    <p class="text-xs text-on-surface-variant">${escapeHtml(profile.user_id)} ${masterBadge}</p>
+                </div>
+                <div class="flex gap-2">${approveButton}${masterButton}</div>
+            </div>
+        `;
+    }
+
     async function createBoard() {
-        if (!supabaseClient) return;
+        if (!supabaseClient || !authUtils.canCreateBoard(currentProfile)) {
+            setStatus('승인된 교사 또는 마스터만 새 보드를 만들 수 있습니다.');
+            return;
+        }
         setStatus('보드 생성 중...');
         try {
             const created = await boardsApi.createBoardInServer(supabaseClient, boardsApi.DEFAULT_BOARD_TITLE);
             boards.push(created);
+            searchQuery = '';
+            if (elements.searchInput) elements.searchInput.value = '';
             renderBoards();
             setStatus('보드가 생성되었습니다.');
         } catch (error) {
@@ -113,15 +323,146 @@
         }
     }
 
-    function handleListClick(event) {
-        const button = event.target.closest('button[data-action]');
-        if (!button) return;
-        const boardId = button.getAttribute('data-board-id');
-        if (button.getAttribute('data-action') === 'rename-board') {
-            renameBoard(boardId);
-        } else if (button.getAttribute('data-action') === 'delete-board') {
-            deleteBoard(boardId);
+    async function updateProfile(userId, patch) {
+        const { error } = await supabaseClient
+            .from('profiles')
+            .update(patch)
+            .eq('user_id', userId);
+        if (error) throw error;
+        await loadAccounts();
+    }
+
+    async function handleAccountAction(action, userId) {
+        try {
+            if (action === 'approve-teacher') {
+                await updateProfile(userId, { role: 'teacher' });
+            } else if (action === 'grant-master') {
+                await updateProfile(userId, { is_master: true, role: 'teacher' });
+            } else if (action === 'revoke-master') {
+                await updateProfile(userId, { is_master: false });
+            }
+        } catch (error) {
+            console.error('Account action failed:', error);
+            alert('계정 관리 작업에 실패했습니다: ' + error.message);
         }
+    }
+
+    async function handleLogin() {
+        const email = elements.emailInput?.value.trim();
+        const password = elements.passwordInput?.value.trim();
+        if (!email || !password) {
+            alert('이메일과 비밀번호를 입력해 주세요.');
+            return;
+        }
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+            alert('로그인 실패: ' + error.message);
+            return;
+        }
+        await refreshSessionProfile();
+        await loadAccounts();
+    }
+
+    async function handleSignup() {
+        const email = elements.emailInput?.value.trim();
+        const password = elements.passwordInput?.value.trim();
+        const displayName = elements.nameInput?.value.trim();
+        if (!email || !password || !displayName) {
+            alert('이메일, 비밀번호, 이름을 모두 입력해 주세요.');
+            return;
+        }
+        const { error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: { data: { display_name: displayName } },
+        });
+        if (error) {
+            alert('가입 실패: ' + error.message);
+            return;
+        }
+        alert('가입 확인 메일을 확인해 주세요. 이메일 확인 후 로그인하면 교사 승인 대기 상태가 됩니다.');
+    }
+
+    async function handleResetPassword() {
+        const email = elements.emailInput?.value.trim();
+        if (!email) {
+            alert('비밀번호를 재설정할 이메일을 입력해 주세요.');
+            return;
+        }
+        const redirectTo = `${window.location.origin}${window.location.pathname}`;
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
+        if (error) {
+            alert('비밀번호 재설정 실패: ' + error.message);
+            return;
+        }
+        alert('비밀번호 재설정 메일을 보냈습니다.');
+    }
+
+    async function handleLogout() {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+            alert('로그아웃 실패: ' + error.message);
+            return;
+        }
+        currentUser = null;
+        currentProfile = null;
+        profiles = [];
+        renderAuthState();
+    }
+
+    function showTab(tabName) {
+        const isAccounts = tabName === 'accounts' && authUtils.isMaster(currentProfile);
+        elements.boardsPanel?.classList.toggle('hidden', isAccounts);
+        elements.accountsPanel?.classList.toggle('hidden', !isAccounts);
+        elements.boardsTabButton?.classList.toggle('bg-primary', !isAccounts);
+        elements.boardsTabButton?.classList.toggle('text-white', !isAccounts);
+        elements.accountsTabButton?.classList.toggle('bg-primary', isAccounts);
+        elements.accountsTabButton?.classList.toggle('text-white', isAccounts);
+        if (isAccounts) loadAccounts().catch(error => console.error('Load accounts failed:', error));
+    }
+
+    function handleListClick(event) {
+        const actionElement = event.target.closest('[data-action]');
+        if (!actionElement) return;
+
+        const action = actionElement.getAttribute('data-action');
+        const boardId = actionElement.getAttribute('data-board-id');
+        const userId = actionElement.getAttribute('data-user-id');
+
+        if (action === 'create-board') {
+            createBoard();
+        } else if (action === 'rename-board') {
+            renameBoard(boardId);
+        } else if (action === 'delete-board') {
+            deleteBoard(boardId);
+        } else if (userId) {
+            handleAccountAction(action, userId);
+        }
+    }
+
+    function handleSearchInput(event) {
+        searchQuery = event.target.value || '';
+        renderBoards();
+    }
+
+    async function initAuth() {
+        if (!supabaseClient) {
+            renderAuthState();
+            return;
+        }
+        await refreshSessionProfile();
+        supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+            currentUser = session?.user || null;
+            if (currentUser) {
+                await loadCurrentProfile();
+                await ensureCurrentProfile();
+            } else {
+                currentProfile = null;
+                profiles = [];
+            }
+            renderAuthState();
+            await loadAccounts();
+        });
     }
 
     function init() {
@@ -133,12 +474,25 @@
 
         if (elements.createButton) elements.createButton.addEventListener('click', createBoard);
         if (elements.list) elements.list.addEventListener('click', handleListClick);
+        if (elements.searchInput) elements.searchInput.addEventListener('input', handleSearchInput);
+        if (elements.loginButton) elements.loginButton.addEventListener('click', () => handleLogin().catch(error => alert(error.message)));
+        if (elements.signupButton) elements.signupButton.addEventListener('click', () => handleSignup().catch(error => alert(error.message)));
+        if (elements.resetPasswordButton) elements.resetPasswordButton.addEventListener('click', () => handleResetPassword().catch(error => alert(error.message)));
+        if (elements.logoutButton) elements.logoutButton.addEventListener('click', () => handleLogout().catch(error => alert(error.message)));
+        if (elements.boardsTabButton) elements.boardsTabButton.addEventListener('click', () => showTab('boards'));
+        if (elements.accountsTabButton) elements.accountsTabButton.addEventListener('click', () => showTab('accounts'));
+        if (elements.accountsPanel) elements.accountsPanel.addEventListener('click', handleListClick);
+
+        initAuth().catch(error => {
+            console.error('Auth init failed:', error);
+            renderAuthState();
+        });
 
         loadBoards().catch((error) => {
             console.error('Load boards failed:', error);
             boards = [];
-            renderBoards();
             setConnected(false, '보드 목록을 불러오지 못했습니다. Supabase 스키마와 연결 설정을 확인해 주세요.');
+            renderBoards();
         });
     }
 

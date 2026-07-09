@@ -8,11 +8,14 @@ const supabaseUtils = globalThis.IdeaCanvasSupabase;
 const boardsApi = globalThis.IdeaCanvasBoards;
 const boardSettingsApi = globalThis.IdeaCanvasBoardSettings;
 const sectionsApi = globalThis.IdeaCanvasSections;
+const authUtils = globalThis.IdeaCanvasAuth;
 const DEFAULT_SECTIONS = [
     { id: 'sec-1', name: sectionUtils.DEFAULT_SECTION_NAME, sort_order: 1 }
 ];
 let currentBoardSettings = boardSettingsUtils.normalizeBoardSettings(null);
 let currentBoardId = boardsApi.getBoardIdFromUrl(window.location.href);
+let currentUser = null;
+let currentProfile = null;
 let isSectionViewEnabled = false;
 let commentDataMap = {}; // noteId => [comments]
 let likeCountMap = {}; // noteId => count
@@ -550,6 +553,7 @@ function requireSupabaseForSectionMutation() {
 function clearLocalBoardSettingsCache() {
     localStorage.removeItem('ideacanvas_board_title');
     localStorage.removeItem('ideacanvas_auth_write');
+    localStorage.removeItem('ideacanvas_write_enabled');
     localStorage.removeItem('ideacanvas_section_view');
     localStorage.removeItem('ideacanvas_supabase_url');
     localStorage.removeItem('ideacanvas_supabase_key');
@@ -562,7 +566,7 @@ function renderBoardSettings() {
 
     if (titleEl) titleEl.textContent = currentBoardSettings.title;
     if (inputEl) inputEl.value = currentBoardSettings.title;
-    if (toggleAuthWrite) toggleAuthWrite.checked = currentBoardSettings.auth_write;
+    if (toggleAuthWrite) toggleAuthWrite.checked = currentBoardSettings.write_enabled;
 }
 
 function renderBoardNavigationLinks() {
@@ -899,9 +903,19 @@ async function handleNoteSubmit(e) {
     }
 
     const noteId = elements.editNoteId.value;
-    const author = elements.noteAuthor.value.trim() || '익명';
+    const author = elements.noteAuthor.value.trim();
     const title = elements.noteTitle.value.trim();
     const content = elements.noteContent.value.trim();
+
+    if (!canCurrentUserWrite()) {
+        alert('현재 보드는 글쓰기 기능이 꺼져 있습니다.');
+        return;
+    }
+
+    if (!author) {
+        alert('작성자 이름을 입력해 주세요.');
+        return;
+    }
     
     // 활성화된 배경색 단추에서 클래스 가져오기
     const activeColorBtn = document.querySelector('.bg-select-btn.border-primary');
@@ -915,6 +929,7 @@ async function handleNoteSubmit(e) {
         bg_color: bgColor,
         author,
         author_id: authorId,
+        author_user_id: currentUser?.id || null,
         image_url: uploadedImageBase64 || elements.imageUrlInput.value.trim() || null,
         drawing_data: sketchImageBase64 || null,
         link_url: elements.linkUrlInput.value.trim() || null,
@@ -1070,7 +1085,7 @@ async function toggleLike(noteId) {
             // 좋아요 추가 (Insert)
             const { error } = await supabaseClient
                 .from('likes')
-                .insert([{ note_id: noteId, user_session_id: authorId }]);
+                .insert([{ note_id: noteId, user_session_id: authorId, user_id: currentUser?.id || null }]);
 
             if (error) throw error;
             userLikesMap[noteId] = true;
@@ -1096,10 +1111,20 @@ async function submitComment(noteId) {
     const content = input.value.trim();
     if (!content) return;
 
+    if (!canCurrentUserWrite()) {
+        alert('현재 보드는 글쓰기 기능이 꺼져 있습니다.');
+        return;
+    }
+
     // 간단한 닉네임 프롬프트 제공 (한번 설정되면 유지되도록 브라우저 저장)
     let cmtAuthor = localStorage.getItem('ideacanvas_comment_author');
     if (!cmtAuthor) {
-        cmtAuthor = prompt('댓글 작성자 닉네임을 입력하세요 (공란 시 익명):', '') || '익명';
+        cmtAuthor = prompt('\ub313\uae00 \uc791\uc131\uc790 \uc774\ub984\uc744 \uc785\ub825\ud558\uc138\uc694:', '') || '';
+        cmtAuthor = cmtAuthor.trim();
+        if (!cmtAuthor) {
+            alert('\uc791\uc131\uc790 \uc774\ub984\uc744 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
+            return;
+        }
         localStorage.setItem('ideacanvas_comment_author', cmtAuthor);
     }
 
@@ -1110,6 +1135,7 @@ async function submitComment(noteId) {
                 note_id: noteId,
                 author: cmtAuthor,
                 author_id: authorId,
+                author_user_id: currentUser?.id || null,
                 content: content
             }]);
 
@@ -1460,8 +1486,50 @@ function initImageDragAndDrop() {
     });
 }
 
-// Auth 상태 보관 변수
-let currentUser = null;
+async function loadCurrentProfile() {
+    currentProfile = null;
+    if (!supabaseClient || !currentUser) return;
+
+    const { data, error } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+
+    if (error) throw error;
+    currentProfile = authUtils.normalizeProfile(data);
+}
+
+async function ensureCurrentProfile() {
+    if (!supabaseClient || !currentUser || currentProfile) return;
+    const displayName = currentUser.user_metadata?.display_name || document.getElementById('auth-display-name')?.value || '';
+    const candidates = authUtils.getProfileInsertCandidates(currentUser, displayName);
+
+    for (const candidate of candidates) {
+        const { data, error } = await supabaseClient
+            .from('profiles')
+            .insert([candidate])
+            .select()
+            .single();
+        if (!error) {
+            currentProfile = authUtils.normalizeProfile(data);
+            return;
+        }
+    }
+}
+
+async function syncCurrentUser(sessionUser) {
+    currentUser = sessionUser || null;
+    currentProfile = null;
+    if (currentUser) {
+        await loadCurrentProfile();
+        await ensureCurrentProfile();
+    }
+}
+
+function canCurrentUserWrite() {
+    return authUtils.canWriteToBoard(currentProfile, currentBoardSettings);
+}
 
 function bindGeneralEvents() {
     // 1. 모달 및 설정 패널 제어
@@ -1486,9 +1554,8 @@ function bindGeneralEvents() {
     if (settingsPanelOverlay) settingsPanelOverlay.addEventListener('click', closeSettingsPanel);
 
     const openNoteModal = () => {
-        const onlyAuthWrite = currentBoardSettings.auth_write === true;
-        if (onlyAuthWrite && !currentUser) {
-            alert("글쓰기는 로그인한 사용자만 가능합니다. 설정 메뉴에서 로그인해 주세요.");
+        if (!canCurrentUserWrite()) {
+            alert("현재 보드는 글쓰기 기능이 꺼져 있습니다. 교사 또는 마스터로 로그인하면 글을 쓸 수 있습니다.");
             openSettingsPanel();
             return;
         }
@@ -1519,114 +1586,150 @@ function bindGeneralEvents() {
     }
     
     if (toggleAuthWrite) {
-        toggleAuthWrite.checked = currentBoardSettings.auth_write;
+        toggleAuthWrite.checked = currentBoardSettings.write_enabled;
         toggleAuthWrite.addEventListener('change', async (e) => {
             const nextValue = e.target.checked;
             try {
-                await saveBoardSettings({ auth_write: nextValue });
+                await saveBoardSettings({ write_enabled: nextValue });
             } catch (err) {
-                console.error("Save auth_write setting failed:", err);
-                e.target.checked = currentBoardSettings.auth_write;
+                console.error("Save write_enabled setting failed:", err);
+                e.target.checked = currentBoardSettings.write_enabled;
             }
         });
     }
 
     // Supabase Auth 연동 UI 갱신 헬퍼
-    function updateAuthUI(user) {
-        currentUser = user;
+    function getCurrentRoleLabel() {
+        if (!currentProfile) return '\uad50\uc0ac \uc2b9\uc778 \ub300\uae30';
+        if (currentProfile.is_master) return currentProfile.is_primary_master ? '\ucd5c\ucd08 \ub9c8\uc2a4\ud130' : '\ub9c8\uc2a4\ud130';
+        return currentProfile.role === 'teacher' ? '\uad50\uc0ac' : '\uad50\uc0ac \uc2b9\uc778 \ub300\uae30';
+    }
+
+    function updateAuthUI() {
         const loggedOutEl = document.getElementById('auth-logged-out');
         const loggedInEl = document.getElementById('auth-logged-in');
         const emailDisplay = document.getElementById('user-email-display');
-        
-        if (user) {
+        const displayName = authUtils.getDisplayName(currentProfile, currentUser);
+
+        if (currentUser) {
             if (loggedOutEl) loggedOutEl.classList.add('hidden');
             if (loggedInEl) loggedInEl.classList.remove('hidden');
-            if (emailDisplay) emailDisplay.textContent = user.email;
-            if (elements.noteAuthor) elements.noteAuthor.value = user.email.split('@')[0];
+            if (emailDisplay) emailDisplay.textContent = displayName ? displayName + ' (' + getCurrentRoleLabel() + ')' : currentUser.email;
+            if (elements.noteAuthor) elements.noteAuthor.value = displayName || currentUser.email.split('@')[0];
         } else {
             if (loggedOutEl) loggedOutEl.classList.remove('hidden');
             if (loggedInEl) loggedInEl.classList.add('hidden');
             if (emailDisplay) emailDisplay.textContent = '';
-            if (elements.noteAuthor) elements.noteAuthor.value = '익명';
+            if (elements.noteAuthor) elements.noteAuthor.value = '';
         }
     }
 
-    // Auth 세션 확인 및 구독
+    async function refreshAuthState(sessionUser) {
+        try {
+            await syncCurrentUser(sessionUser);
+        } catch (error) {
+            console.error('Sync auth profile failed:', error);
+        }
+        updateAuthUI();
+        renderBoardSettings();
+    }
+
     if (supabaseClient) {
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
-            updateAuthUI(session ? session.user : null);
+            refreshAuthState(session ? session.user : null);
         });
-        
+
         supabaseClient.auth.onAuthStateChange((_event, session) => {
-            updateAuthUI(session ? session.user : null);
+            refreshAuthState(session ? session.user : null);
         });
     }
 
-    // 로그인
     const btnLogin = document.getElementById('btn-login');
     if (btnLogin) {
         btnLogin.addEventListener('click', async () => {
             const email = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value.trim();
             if (!email || !password) {
-                alert('이메일과 비밀번호를 입력해주세요.');
+                alert('\uc774\uba54\uc77c\uacfc \ube44\ubc00\ubc88\ud638\ub97c \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
                 return;
             }
             try {
-                btnLogin.textContent = '로그인 중...';
+                btnLogin.textContent = '\ub85c\uadf8\uc778 \uc911...';
                 btnLogin.disabled = true;
-                const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) throw error;
-                alert('로그인되었습니다!');
+                await refreshAuthState(data.user);
                 closeSettingsPanel();
             } catch (err) {
-                alert('로그인 실패: ' + err.message);
+                alert('\ub85c\uadf8\uc778 \uc2e4\ud328: ' + err.message);
             } finally {
-                btnLogin.textContent = '로그인';
+                btnLogin.textContent = '\ub85c\uadf8\uc778';
                 btnLogin.disabled = false;
             }
         });
     }
-    
-    // 회원가입
+
     const btnSignUp = document.getElementById('btn-signup');
     if (btnSignUp) {
         btnSignUp.addEventListener('click', async () => {
             const email = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value.trim();
-            if (!email || !password) {
-                alert('이메일과 비밀번호를 입력해주세요.');
+            const displayName = document.getElementById('auth-display-name')?.value.trim() || '';
+            if (!email || !password || !displayName) {
+                alert('\uc774\uba54\uc77c, \ube44\ubc00\ubc88\ud638, \uc774\ub984\uc744 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
                 return;
             }
             if (password.length < 6) {
-                alert('비밀번호는 최소 6자리 이상이어야 합니다.');
+                alert('\ube44\ubc00\ubc88\ud638\ub294 \ucd5c\uc18c 6\uc790\ub9ac \uc774\uc0c1\uc774\uc5b4\uc57c \ud569\ub2c8\ub2e4.');
                 return;
             }
             try {
-                btnSignUp.textContent = '처리 중...';
+                btnSignUp.textContent = '\ucc98\ub9ac \uc911...';
                 btnSignUp.disabled = true;
-                const { error } = await supabaseClient.auth.signUp({ email, password });
+                const { data, error } = await supabaseClient.auth.signUp({
+                    email,
+                    password,
+                    options: { data: { display_name: displayName } }
+                });
                 if (error) throw error;
-                alert('회원가입 메일이 발송되었거나 회원가입이 완료되었습니다. 메일을 확인하시거나 로그인해보세요!');
+                if (data.user) await refreshAuthState(data.user);
+                alert('\uad50\uc0ac \uac00\uc785\uc774 \uc811\uc218\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \ud544\uc694\ud558\uba74 \uc774\uba54\uc77c\uc744 \ud655\uc778\ud558\uace0, \ub9c8\uc2a4\ud130 \uc2b9\uc778 \ud6c4 \uad50\uc0ac \uad8c\ud55c\uc744 \uc0ac\uc6a9\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4.');
             } catch (err) {
-                alert('회원가입 실패: ' + err.message);
+                alert('\uad50\uc0ac \uac00\uc785 \uc2e4\ud328: ' + err.message);
             } finally {
-                btnSignUp.textContent = '회원가입';
+                btnSignUp.textContent = '\uad50\uc0ac \uac00\uc785';
                 btnSignUp.disabled = false;
             }
         });
     }
-    
-    // 로그아웃
+
+    const btnResetPassword = document.getElementById('btn-reset-password');
+    if (btnResetPassword) {
+        btnResetPassword.addEventListener('click', async () => {
+            const email = document.getElementById('auth-email').value.trim();
+            if (!email) {
+                alert('\ube44\ubc00\ubc88\ud638\ub97c \uc7ac\uc124\uc815\ud560 \uc774\uba54\uc77c\uc744 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
+                return;
+            }
+            try {
+                const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+                if (error) throw error;
+                alert('\ube44\ubc00\ubc88\ud638 \uc7ac\uc124\uc815 \uba54\uc77c\uc744 \ubcf4\ub0c8\uc2b5\ub2c8\ub2e4.');
+            } catch (err) {
+                alert('\ube44\ubc00\ubc88\ud638 \uc7ac\uc124\uc815 \uc2e4\ud328: ' + err.message);
+            }
+        });
+    }
+
     const btnLogout = document.getElementById('btn-logout');
     if (btnLogout) {
         btnLogout.addEventListener('click', async () => {
             try {
                 const { error } = await supabaseClient.auth.signOut();
                 if (error) throw error;
-                alert('로그아웃되었습니다.');
+                await refreshAuthState(null);
             } catch (err) {
-                alert('로그아웃 실패: ' + err.message);
+                alert('\ub85c\uadf8\uc544\uc6c3 \uc2e4\ud328: ' + err.message);
             }
         });
     }

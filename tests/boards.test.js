@@ -6,6 +6,7 @@ const {
   getBoardIdFromUrl,
   normalizeBoard,
   normalizeBoards,
+  filterBoardsByQuery,
   loadBoardFromServer,
   loadBoardsFromServer,
   createBoardInServer,
@@ -60,6 +61,10 @@ test('reads board_id from a URL', () => {
   assert.equal(getBoardIdFromUrl('http://localhost/index.html'), '');
 });
 
+test('uses a readable default board title', () => {
+  assert.equal(DEFAULT_BOARD_TITLE, '새 보드');
+});
+
 test('normalizes board data', () => {
   assert.deepEqual(normalizeBoard({ id: '1', title: '  Sprint  ' }), {
     id: '1',
@@ -72,6 +77,20 @@ test('normalizes board data', () => {
 
 test('normalizes board arrays and filters missing ids', () => {
   assert.deepEqual(normalizeBoards([{ id: '1', title: 'A' }, { title: 'B' }]).map(b => b.id), ['1']);
+});
+
+test('filters boards by title query without mutating the list', () => {
+  const source = [
+    { id: '1', title: 'Design Sprint' },
+    { id: '2', title: 'Class Ideas' },
+    { id: '3', title: 'Retrospective' },
+  ];
+
+  const result = filterBoardsByQuery(source, ' idea ');
+
+  assert.deepEqual(result.map(board => board.id), ['2']);
+  assert.equal(source.length, 3);
+  assert.deepEqual(filterBoardsByQuery(source, ''), source);
 });
 
 test('loads boards ordered by sort_order', async () => {

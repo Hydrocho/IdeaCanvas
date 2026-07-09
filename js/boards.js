@@ -34,6 +34,12 @@
             : [];
     }
 
+    function filterBoardsByQuery(boards, query) {
+        const normalizedQuery = typeof query === 'string' ? query.trim().toLowerCase() : '';
+        if (!normalizedQuery) return boards;
+        return normalizeBoards(boards).filter(board => board.title.toLowerCase().includes(normalizedQuery));
+    }
+
     async function loadBoardsFromServer(client) {
         if (!client) throw new Error('Supabase client is not available');
         const { data, error } = await client
@@ -95,6 +101,7 @@
         getBoardIdFromUrl,
         normalizeBoard,
         normalizeBoards,
+        filterBoardsByQuery,
         loadBoardFromServer,
         loadBoardsFromServer,
         createBoardInServer,
