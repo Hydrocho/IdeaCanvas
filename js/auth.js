@@ -39,6 +39,10 @@
         return isApprovedTeacher(profile) || isMaster(profile);
     }
 
+    function canUseDashboard(profile) {
+        return canCreateBoard(profile);
+    }
+
     function canWriteToBoard(profile, settings) {
         if (isTeacherAccount(profile)) return true;
         return settings?.write_enabled === true;
@@ -82,6 +86,7 @@
         isTeacherAccount,
         isMaster,
         canCreateBoard,
+        canUseDashboard,
         canWriteToBoard,
         getProfileInsertCandidates,
         getDisplayName,

@@ -15,6 +15,8 @@
         list: document.getElementById('boards-list'),
         status: document.getElementById('boards-status'),
         detail: document.getElementById('boards-connection-detail'),
+        gate: document.getElementById('dashboard-gate'),
+        workspace: document.getElementById('dashboard-workspace'),
         createButton: document.getElementById('create-board-btn'),
         searchInput: document.getElementById('board-search-input'),
         authStatus: document.getElementById('dashboard-auth-status'),
@@ -46,37 +48,40 @@
         updateCreateButtonState();
     }
 
-    function updateCreateButtonState() {
-        if (!elements.createButton) return;
-        elements.createButton.disabled = !isConnected || !authUtils.canCreateBoard(currentProfile);
-        elements.createButton.title = authUtils.canCreateBoard(currentProfile)
-            ? ''
-            : '승인된 교사 또는 마스터만 새 보드를 만들 수 있습니다.';
+    function canUseDashboard() {
+        return authUtils.canUseDashboard(currentProfile);
     }
 
-    function renderEmptyState(message, showCreateButton = true) {
-        const canCreate = showCreateButton && authUtils.canCreateBoard(currentProfile);
-        const createButtonMarkup = canCreate
-            ? '<button type="button" data-action="create-board" class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:opacity-90"><span class="material-symbols-outlined text-lg">add</span>새 보드 만들기</button>'
-            : '';
+    function updateCreateButtonState() {
+        if (!elements.createButton) return;
+        const canCreate = isConnected && authUtils.canCreateBoard(currentProfile);
+        elements.createButton.disabled = !canCreate;
+        elements.createButton.title = canCreate ? '' : '승인된 교사 또는 마스터만 새 보드를 만들 수 있습니다.';
+    }
 
+    function getRoleLabel() {
+        if (!currentProfile) return '승인 대기';
+        if (currentProfile.is_master) return currentProfile.is_primary_master ? '최초 마스터' : '마스터';
+        return currentProfile.role === 'teacher' ? '교사' : '승인 대기';
+    }
+
+    function renderEmptyState(message) {
+        if (!elements.list) return;
         elements.list.innerHTML = `
             <div class="md:col-span-2 xl:col-span-3 rounded-lg border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-12 text-center">
                 <span class="material-symbols-outlined text-4xl text-primary">dashboard_customize</span>
-                <p class="mt-3 text-base font-bold text-on-surface">${message}</p>
-                <div class="mt-5">${createButtonMarkup}</div>
+                <p class="mt-3 text-base font-bold text-on-surface">${escapeHtml(message)}</p>
             </div>
         `;
     }
 
     function renderBoards() {
-        if (!elements.list) return;
+        if (!elements.list || !canUseDashboard()) return;
 
         const visibleBoards = boardsApi.filterBoardsByQuery(boards, searchQuery);
 
         if (!visibleBoards.length) {
-            const message = boards.length ? '검색 결과가 없습니다' : '아직 보드가 없습니다';
-            renderEmptyState(message, isConnected && !searchQuery);
+            renderEmptyState(boards.length ? '검색 결과가 없습니다.' : '아직 보드가 없습니다.');
             return;
         }
 
@@ -89,6 +94,7 @@
                 <div class="p-5 flex min-h-48 flex-col gap-5">
                     <div>
                         <input data-board-id="${escapeHtml(board.id)}" class="board-title-input w-full text-xl font-extrabold bg-transparent border-b border-transparent hover:border-outline-variant focus:border-primary focus:ring-0 outline-none px-0 py-1" value="${escapeHtml(board.title)}" aria-label="보드 이름"/>
+                        <p class="text-xs text-on-surface-variant mt-2">보드 ID: ${escapeHtml(board.id)}</p>
                     </div>
                     <div class="mt-auto flex flex-wrap gap-2">
                         <a href="board.html?board_id=${encodeURIComponent(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90">
@@ -101,7 +107,7 @@
                         </a>
                         <button type="button" data-action="rename-board" data-board-id="${escapeHtml(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold hover:bg-surface-container-high">
                             <span class="material-symbols-outlined text-base">edit</span>
-                            이름 변경
+                            이름 저장
                         </button>
                         <button type="button" data-action="delete-board" data-board-id="${escapeHtml(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold text-error hover:bg-red-50">
                             <span class="material-symbols-outlined text-base">delete</span>
@@ -116,19 +122,19 @@
 
     function renderAuthState() {
         const displayName = authUtils.getDisplayName(currentProfile, currentUser);
+        const dashboardAllowed = canUseDashboard();
+
+        elements.gate?.classList.toggle('hidden', dashboardAllowed);
+        elements.workspace?.classList.toggle('hidden', !dashboardAllowed);
+
         if (currentUser) {
             elements.authLoggedOut?.classList.add('hidden');
             elements.authLoggedIn?.classList.remove('hidden');
             if (elements.userDisplay) {
-                const roleLabel = currentProfile?.is_master
-                    ? '마스터'
-                    : currentProfile?.role === 'teacher'
-                        ? '교사'
-                        : '승인 대기';
-                elements.userDisplay.textContent = `${displayName || currentUser.email} (${roleLabel})`;
+                elements.userDisplay.textContent = `${displayName || currentUser.email} (${getRoleLabel()})`;
             }
             if (elements.authStatus) {
-                elements.authStatus.textContent = currentProfile?.role === 'teacher' || currentProfile?.is_master
+                elements.authStatus.textContent = dashboardAllowed
                     ? '보드 생성과 관리 권한이 활성화되었습니다.'
                     : '교사 승인 대기 중입니다. 마스터 승인 후 보드를 만들 수 있습니다.';
             }
@@ -136,15 +142,21 @@
             elements.authLoggedOut?.classList.remove('hidden');
             elements.authLoggedIn?.classList.add('hidden');
             if (elements.userDisplay) elements.userDisplay.textContent = '';
-            if (elements.authStatus) elements.authStatus.textContent = '교사는 로그인 후 보드를 만들 수 있습니다.';
+            if (elements.authStatus) elements.authStatus.textContent = '교사로 로그인하면 보드 대시보드를 사용할 수 있습니다.';
         }
 
-        if (elements.accountsTabButton) {
-            elements.accountsTabButton.classList.toggle('hidden', !authUtils.isMaster(currentProfile));
+        if (!dashboardAllowed) {
+            boards = [];
+            profiles = [];
+            if (elements.list) elements.list.innerHTML = '';
+            setStatus('');
+            showTab('boards');
         }
+
+        elements.accountsTabButton?.classList.toggle('hidden', !authUtils.isMaster(currentProfile));
         if (!authUtils.isMaster(currentProfile)) showTab('boards');
         updateCreateButtonState();
-        renderBoards();
+        if (dashboardAllowed) renderBoards();
         renderAccounts();
     }
 
@@ -194,9 +206,14 @@
     }
 
     async function loadBoards() {
+        if (!canUseDashboard()) {
+            boards = [];
+            renderAuthState();
+            return;
+        }
         if (!supabaseClient) {
             boards = [];
-            setConnected(false, 'supabase_config.js의 Supabase URL/key를 설정하면 보드를 서버에 저장할 수 있습니다.');
+            setConnected(false, 'supabase_config.js에 Supabase URL/key를 설정하면 보드를 서버에 저장할 수 있습니다.');
             renderBoards();
             return;
         }
@@ -244,9 +261,9 @@
 
     function renderProfileRow(profile, group) {
         const masterBadge = profile.is_primary_master
-            ? '<span class="text-xs font-bold text-primary">Primary Master</span>'
+            ? '<span class="text-xs font-bold text-primary">최초 마스터</span>'
             : profile.is_master
-                ? '<span class="text-xs font-bold text-primary">Master</span>'
+                ? '<span class="text-xs font-bold text-primary">마스터</span>'
                 : '';
         const approveButton = group === 'pending'
             ? `<button type="button" data-action="approve-teacher" data-user-id="${escapeHtml(profile.user_id)}" class="px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold">승인</button>`
@@ -288,6 +305,10 @@
     }
 
     async function renameBoard(boardId) {
+        if (!authUtils.canCreateBoard(currentProfile)) {
+            setStatus('승인된 교사 또는 마스터만 보드를 수정할 수 있습니다.');
+            return;
+        }
         const board = boards.find(item => item.id === boardId);
         const input = elements.list.querySelector(`input[data-board-id="${cssEscape(boardId)}"]`);
         const nextTitle = input ? input.value.trim() : '';
@@ -307,6 +328,10 @@
     }
 
     async function deleteBoard(boardId) {
+        if (!authUtils.canCreateBoard(currentProfile)) {
+            setStatus('승인된 교사 또는 마스터만 보드를 삭제할 수 있습니다.');
+            return;
+        }
         const board = boards.find(item => item.id === boardId);
         if (!board) return;
         if (!confirm(`'${board.title}' 보드를 삭제할까요? 보드 안의 메모와 섹션도 삭제됩니다.`)) return;
@@ -360,6 +385,7 @@
             return;
         }
         await refreshSessionProfile();
+        await loadBoards();
         await loadAccounts();
     }
 
@@ -406,6 +432,7 @@
         }
         currentUser = null;
         currentProfile = null;
+        boards = [];
         profiles = [];
         renderAuthState();
     }
@@ -458,19 +485,24 @@
                 await ensureCurrentProfile();
             } else {
                 currentProfile = null;
+                boards = [];
                 profiles = [];
             }
             renderAuthState();
-            await loadAccounts();
+            if (canUseDashboard()) {
+                await loadBoards();
+                await loadAccounts();
+            }
         });
     }
 
-    function init() {
+    async function init() {
         const connection = supabaseUtils.createSupabaseClient(
             typeof CONFIG !== 'undefined' ? CONFIG : null,
             typeof supabase !== 'undefined' ? supabase : null
         );
         supabaseClient = connection.client;
+        isConnected = Boolean(supabaseClient);
 
         if (elements.createButton) elements.createButton.addEventListener('click', createBoard);
         if (elements.list) elements.list.addEventListener('click', handleListClick);
@@ -483,17 +515,18 @@
         if (elements.accountsTabButton) elements.accountsTabButton.addEventListener('click', () => showTab('accounts'));
         if (elements.accountsPanel) elements.accountsPanel.addEventListener('click', handleListClick);
 
-        initAuth().catch(error => {
-            console.error('Auth init failed:', error);
+        if (!supabaseClient) {
+            setConnected(false, 'supabase_config.js에 Supabase URL/key를 설정해 주세요.');
             renderAuthState();
-        });
+            return;
+        }
 
-        loadBoards().catch((error) => {
-            console.error('Load boards failed:', error);
-            boards = [];
-            setConnected(false, '보드 목록을 불러오지 못했습니다. Supabase 스키마와 연결 설정을 확인해 주세요.');
-            renderBoards();
-        });
+        setConnected(true, 'Supabase에 연결되었습니다. 교사 로그인 후 보드를 관리할 수 있습니다.');
+        await initAuth();
+        if (canUseDashboard()) {
+            await loadBoards();
+            await loadAccounts();
+        }
     }
 
     function escapeHtml(unsafe) {
@@ -507,11 +540,17 @@
     }
 
     function cssEscape(value) {
-        if (globalThis.CSS && typeof globalThis.CSS.escape === 'function') {
-            return globalThis.CSS.escape(value);
+        if (globalThis.CSS && typeof CSS.escape === 'function') {
+            return CSS.escape(value);
         }
         return String(value).replace(/"/g, '\\"');
     }
 
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+        init().catch((error) => {
+            console.error('Dashboard init failed:', error);
+            setConnected(false, '대시보드를 초기화하지 못했습니다. 설정과 Supabase 연결을 확인해 주세요.');
+            renderAuthState();
+        });
+    });
 })();

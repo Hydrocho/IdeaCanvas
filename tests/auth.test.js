@@ -7,6 +7,7 @@ const {
   isTeacherAccount,
   isMaster,
   canCreateBoard,
+  canUseDashboard,
   canWriteToBoard,
   getProfileInsertCandidates,
   getDisplayName,
@@ -39,6 +40,10 @@ test('detects teacher and master capabilities', () => {
   assert.equal(canCreateBoard(pending), false);
   assert.equal(canCreateBoard(teacher), true);
   assert.equal(canCreateBoard(master), true);
+  assert.equal(canUseDashboard(null), false);
+  assert.equal(canUseDashboard(pending), false);
+  assert.equal(canUseDashboard(teacher), true);
+  assert.equal(canUseDashboard(master), true);
 });
 
 test('allows guest writing only when write_enabled is true', () => {
