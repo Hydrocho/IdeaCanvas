@@ -21,8 +21,8 @@ function createTableStub(result, capture) {
       capture.push(['maybeSingle']);
       return Promise.resolve(result);
     },
-    upsert(payload) {
-      capture.push(['upsert', payload]);
+    upsert(payload, options) {
+      capture.push(['upsert', payload, options]);
       return this;
     },
     single() {
@@ -137,7 +137,7 @@ test('saves normalized board settings with updated_at', async () => {
       title: '저장된 보드',
       write_enabled: false,
       updated_at: '2026-07-08T00:00:00.000Z',
-    }],
+    }, undefined],
     ['select', undefined],
     ['single'],
   ]);
@@ -164,5 +164,5 @@ test('saves board settings with board_id when provided', async () => {
     title: '보드 제목',
     write_enabled: true,
     updated_at: '2026-07-08T00:00:00.000Z',
-  }]);
+  }, { onConflict: 'board_id' }]);
 });

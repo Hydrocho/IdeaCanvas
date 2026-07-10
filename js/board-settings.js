@@ -59,9 +59,10 @@
         };
         if (boardId) payload.board_id = boardId;
 
+        const upsertOptions = boardId ? { onConflict: 'board_id' } : undefined;
         const { data, error } = await client
             .from('board_settings')
-            .upsert(payload)
+            .upsert(payload, upsertOptions)
             .select()
             .single();
 
