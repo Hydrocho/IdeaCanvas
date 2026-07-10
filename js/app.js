@@ -910,7 +910,7 @@ async function handleNoteSubmit(e) {
     }
 
     const noteId = elements.editNoteId.value;
-    const author = elements.noteAuthor.value.trim();
+    const author = elements.noteAuthor.value.trim() || '익명';
     const title = elements.noteTitle.value.trim();
     const content = elements.noteContent.value.trim();
 
@@ -919,10 +919,7 @@ async function handleNoteSubmit(e) {
         return;
     }
 
-    if (!author) {
-        alert('작성자 이름을 입력해 주세요.');
-        return;
-    }
+    if (elements.noteAuthor) elements.noteAuthor.value = author;
     
     // 활성화된 배경색 단추에서 클래스 가져오기
     const activeColorBtn = document.querySelector('.bg-select-btn.border-primary');
@@ -1390,6 +1387,7 @@ function closeAllModals() {
 // 노트 작성 폼 상태 초기화
 function resetNoteForm() {
     elements.editNoteId.value = '';
+    if (elements.noteAuthor) elements.noteAuthor.value = '익명';
     elements.noteTitle.value = '';
     elements.noteContent.value = '';
     elements.imageUrlInput.value = '';
@@ -1542,6 +1540,7 @@ function bindGeneralEvents() {
     // 1. 모달 및 설정 패널 제어
     const settingsPanel = document.getElementById('settings-panel');
     const settingsPanelOverlay = document.getElementById('settings-panel-overlay');
+    const writeDisabledModal = document.getElementById('write-disabled-modal');
     
     const openSettingsPanel = () => {
         if (settingsPanel) settingsPanel.classList.remove('translate-x-full');
@@ -1560,10 +1559,21 @@ function bindGeneralEvents() {
     if (closeSettingsPanelBtn) closeSettingsPanelBtn.addEventListener('click', closeSettingsPanel);
     if (settingsPanelOverlay) settingsPanelOverlay.addEventListener('click', closeSettingsPanel);
 
+    const openWriteDisabledModal = () => {
+        if (writeDisabledModal) writeDisabledModal.classList.remove('hidden');
+    };
+
+    const closeWriteDisabledModal = () => {
+        if (writeDisabledModal) writeDisabledModal.classList.add('hidden');
+    };
+
+    document.querySelectorAll('.write-disabled-close-trigger, #write-disabled-close-btn').forEach(btn => {
+        btn.addEventListener('click', closeWriteDisabledModal);
+    });
+
     const openNoteModal = () => {
         if (!canCurrentUserWrite()) {
-            alert("현재 보드는 글쓰기 기능이 꺼져 있습니다. 교사 또는 마스터로 로그인하면 글을 쓸 수 있습니다.");
-            openSettingsPanel();
+            openWriteDisabledModal();
             return;
         }
         resetNoteForm();

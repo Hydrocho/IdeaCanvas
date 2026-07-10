@@ -256,61 +256,74 @@
 
 
 
+    <!-- 글쓰기 비활성 안내 모달 -->
+    <div id="write-disabled-modal" class="fixed inset-0 z-50 flex items-center justify-center px-4 hidden">
+        <div class="absolute inset-0 bg-black/35 backdrop-blur-sm write-disabled-close-trigger"></div>
+        <div class="relative w-full max-w-sm rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-2xl animate-modal">
+            <div class="mb-4 flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-container text-primary">
+                    <span class="material-symbols-outlined">edit_off</span>
+                </div>
+                <h3 class="text-lg font-extrabold text-on-surface">글쓰기가 꺼져 있습니다.</h3>
+            </div>
+            <p class="text-sm leading-6 text-on-surface-variant">
+                교사가 글쓰기를 허용해야 생각을 작성할 수 있습니다.
+            </p>
+            <button type="button" id="write-disabled-close-btn" class="mt-6 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:opacity-90">
+                확인
+            </button>
+        </div>
+    </div>
+
     <!-- 2. 새 메모 작성 모달 -->
     <div id="note-modal" class="fixed inset-0 z-50 flex items-center justify-center px-4 hidden">
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm modal-close-trigger"></div>
         <!-- Modal Content -->
-        <div class="relative w-full max-w-2xl bg-surface-container-lowest rounded-3xl shadow-2xl overflow-hidden border border-outline-variant/20 flex flex-col animate-modal max-h-[90vh]">
+        <div class="relative w-full max-w-lg bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden border border-outline-variant/20 flex flex-col animate-modal max-h-[88vh]">
             <!-- Header -->
-            <div class="p-6 pb-4 border-b border-outline-variant/10 flex items-center justify-between">
+            <div class="px-5 py-4 border-b border-outline-variant/10 flex items-center justify-between">
                 <div>
-                    <h3 id="modal-title" class="font-headline-md text-headline-md text-on-surface">새 생각 더하기</h3>
-                    <p class="text-xs text-on-surface-variant mt-1">오늘 떠오른 생각을 메모지 위에 올려 공유해 보세요.</p>
+                    <h3 id="modal-title" class="text-lg font-extrabold text-on-surface">새 생각 더하기</h3>
                 </div>
-                <button type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant modal-close-btn">
+                <button type="button" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant modal-close-btn">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
             
             <!-- Body -->
-            <form id="note-form" class="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
+            <form id="note-form" class="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
                 <input type="hidden" id="edit-note-id" value="">
+                <input id="note-author" type="hidden" value="익명"/>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="text-xs font-semibold text-on-surface-variant ml-1">작성자 닉네임</label>
-                        <input id="note-author" class="w-full px-4 py-2.5 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest outline-none text-sm transition-all" placeholder="익명" type="text" value="익명"/>
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-xs font-semibold text-on-surface-variant ml-1">제목</label>
-                        <input id="note-title" class="w-full px-4 py-2.5 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest outline-none text-sm transition-all" placeholder="제목 (선택)" type="text"/>
-                    </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-on-surface-variant ml-1">제목</label>
+                    <input id="note-title" class="w-full px-3 py-2 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest outline-none text-sm transition-all" placeholder="제목 (선택)" type="text"/>
                 </div>
 
                 <div class="space-y-1">
-                    <label class="text-xs font-semibold text-on-surface-variant ml-1">생각 내용</label>
-                    <textarea id="note-content" required class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest outline-none text-sm transition-all resize-none" placeholder="공유하고 싶은 생각을 자유롭게 적어주세요..." rows="4"></textarea>
+                    <label class="text-xs font-semibold text-on-surface-variant ml-1">내용</label>
+                    <textarea id="note-content" required class="w-full px-3 py-2.5 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest outline-none text-sm transition-all resize-none" placeholder="생각이나 자료 설명을 입력하세요." rows="3"></textarea>
                 </div>
 
                 <!-- 배경색 테마 선택 -->
                 <div class="space-y-2">
-                    <label class="text-xs font-semibold text-on-surface-variant ml-1">메모 배경색 테마</label>
+                    <label class="text-xs font-semibold text-on-surface-variant ml-1">배경색</label>
                     <div class="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
-                        <button type="button" data-bg="bg-surface-container-lowest" class="w-9 h-9 rounded-full border-2 border-primary bg-white flex items-center justify-center relative shadow-sm hover:scale-105 transition-all bg-select-btn">
+                        <button type="button" data-bg="bg-surface-container-lowest" class="w-8 h-8 rounded-full border-2 border-primary bg-white flex items-center justify-center relative shadow-sm hover:scale-105 transition-all bg-select-btn">
                             <span class="material-symbols-outlined text-[16px] text-primary">check</span>
                         </button>
-                        <button type="button" data-bg="bg-amber-100/80" class="w-9 h-9 rounded-full border-2 border-transparent bg-amber-100 hover:scale-105 transition-all bg-select-btn"></button>
-                        <button type="button" data-bg="bg-emerald-100/80" class="w-9 h-9 rounded-full border-2 border-transparent bg-emerald-100 hover:scale-105 transition-all bg-select-btn"></button>
-                        <button type="button" data-bg="bg-sky-100/80" class="w-9 h-9 rounded-full border-2 border-transparent bg-sky-100 hover:scale-105 transition-all bg-select-btn"></button>
-                        <button type="button" data-bg="bg-fuchsia-100/80" class="w-9 h-9 rounded-full border-2 border-transparent bg-fuchsia-100 hover:scale-105 transition-all bg-select-btn"></button>
-                        <button type="button" data-bg="bg-rose-100/80" class="w-9 h-9 rounded-full border-2 border-transparent bg-rose-100 hover:scale-105 transition-all bg-select-btn"></button>
+                        <button type="button" data-bg="bg-amber-100/80" class="w-8 h-8 rounded-full border-2 border-transparent bg-amber-100 hover:scale-105 transition-all bg-select-btn"></button>
+                        <button type="button" data-bg="bg-emerald-100/80" class="w-8 h-8 rounded-full border-2 border-transparent bg-emerald-100 hover:scale-105 transition-all bg-select-btn"></button>
+                        <button type="button" data-bg="bg-sky-100/80" class="w-8 h-8 rounded-full border-2 border-transparent bg-sky-100 hover:scale-105 transition-all bg-select-btn"></button>
+                        <button type="button" data-bg="bg-fuchsia-100/80" class="w-8 h-8 rounded-full border-2 border-transparent bg-fuchsia-100 hover:scale-105 transition-all bg-select-btn"></button>
+                        <button type="button" data-bg="bg-rose-100/80" class="w-8 h-8 rounded-full border-2 border-transparent bg-rose-100 hover:scale-105 transition-all bg-select-btn"></button>
                     </div>
                 </div>
 
                 <!-- 섹션 선택 필드 -->
                 <div class="space-y-2">
-                    <label class="text-xs font-semibold text-on-surface-variant ml-1 block">게시할 섹션</label>
+                    <label class="text-xs font-semibold text-on-surface-variant ml-1 block">섹션</label>
                     <div id="modal-section-select-container" class="flex flex-wrap gap-2">
                         <!-- 동적으로 등록된 섹션 리스트 버튼들이 이곳에 렌더링됩니다 -->
                     </div>
@@ -319,30 +332,33 @@
 
                 <!-- 포스트 첨부 도구 툴바 -->
                 <div class="space-y-3">
-                    <div class="flex items-center justify-between border border-outline-variant/30 rounded-xl p-3 bg-surface-container-low/20">
-                        <span class="text-xs font-semibold text-on-surface-variant">메모에 콘텐츠 첨부하기</span>
+                    <div class="flex items-center justify-between border border-outline-variant/30 rounded-lg px-3 py-2 bg-surface-container-low/20">
+                        <span class="text-xs font-semibold text-on-surface-variant">자료 추가</span>
                         <div class="flex items-center gap-1.5">
-                            <button type="button" id="tool-btn-image" class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary-container/20 rounded-lg transition-all flex items-center justify-center" title="이미지 첨부">
-                                <span class="material-symbols-outlined text-xl">image</span>
+                            <button type="button" id="tool-btn-image" class="px-2.5 py-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/20 rounded-lg transition-all flex items-center justify-center gap-1 text-xs font-semibold" title="이미지 첨부">
+                                <span class="material-symbols-outlined text-lg">image</span>
+                                이미지
                             </button>
-                            <button type="button" id="tool-btn-link" class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary-container/20 rounded-lg transition-all flex items-center justify-center" title="링크 추가">
-                                <span class="material-symbols-outlined text-xl">link</span>
+                            <button type="button" id="tool-btn-link" class="px-2.5 py-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/20 rounded-lg transition-all flex items-center justify-center gap-1 text-xs font-semibold" title="링크 추가">
+                                <span class="material-symbols-outlined text-lg">link</span>
+                                링크
                             </button>
-                            <button type="button" id="tool-btn-draw" class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary-container/20 rounded-lg transition-all flex items-center justify-center" title="손그림 스케치">
-                                <span class="material-symbols-outlined text-xl">draw</span>
+                            <button type="button" id="tool-btn-draw" class="px-2.5 py-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/20 rounded-lg transition-all flex items-center justify-center gap-1 text-xs font-semibold" title="손그림 스케치">
+                                <span class="material-symbols-outlined text-lg">draw</span>
+                                그림
                             </button>
                         </div>
                     </div>
 
                     <!-- 1. 이미지 첨부 패널 (기본 숨김) -->
-                    <div id="panel-image" class="border border-outline-variant/20 rounded-xl p-4 bg-surface-container-low/10 hidden space-y-3">
-                        <div class="flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/40 rounded-xl p-4 bg-surface-container-low hover:bg-surface-container-low/80 cursor-pointer relative" id="image-dropzone">
+                    <div id="panel-image" class="border border-outline-variant/20 rounded-lg p-3 bg-surface-container-low/10 hidden space-y-2">
+                        <div class="flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/40 rounded-lg p-3 bg-surface-container-low hover:bg-surface-container-low/80 cursor-pointer relative" id="image-dropzone">
                             <span class="material-symbols-outlined text-outline text-2xl mb-1">image</span>
                             <span class="text-[11px] text-on-surface-variant">파일을 드래그하거나 클릭하여 이미지 업로드</span>
                             <input id="image-file-input" type="file" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer"/>
                         </div>
                         <div class="text-center text-[10px] text-outline font-semibold">또는</div>
-                        <input id="image-url-input" class="w-full px-4 py-2 bg-white border border-outline-variant/30 rounded-xl text-xs outline-none focus:ring-1 focus:ring-primary" placeholder="외부 이미지 URL 입력 (http://...)"/>
+                        <input id="image-url-input" class="w-full px-3 py-2 bg-white border border-outline-variant/30 rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary" placeholder="외부 이미지 URL 입력"/>
                         
                         <!-- 업로드된 이미지 미리보기 -->
                         <div id="image-preview-container" class="hidden relative mt-2 rounded-xl overflow-hidden border border-outline-variant/30 max-h-40 bg-slate-50 flex items-center justify-center p-1">
@@ -354,9 +370,8 @@
                     </div>
 
                     <!-- 2. 웹/유튜브 링크 패널 (기본 숨김) -->
-                    <div id="panel-link" class="border border-outline-variant/20 rounded-xl p-4 bg-surface-container-low/10 hidden space-y-3">
-                        <input id="link-url-input" class="w-full px-4 py-2.5 bg-white border border-outline-variant/30 rounded-xl text-xs outline-none focus:ring-1 focus:ring-primary" placeholder="유튜브 링크 또는 웹주소 입력 (https://...)"/>
-                        <p class="text-[10px] text-on-surface-variant/80">💡 유튜브 주소를 적으시면 동영상 플레이어가 자동 연계됩니다.</p>
+                    <div id="panel-link" class="border border-outline-variant/20 rounded-lg p-3 bg-surface-container-low/10 hidden space-y-2">
+                        <input id="link-url-input" class="w-full px-3 py-2 bg-white border border-outline-variant/30 rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary" placeholder="유튜브 링크 또는 웹주소"/>
                         
                         <!-- 링크 미리보기 카드 -->
                         <div id="link-preview-box" class="hidden p-3 bg-white border border-outline-variant/30 rounded-xl flex items-center gap-3">
@@ -374,7 +389,7 @@
                     </div>
 
                     <!-- 3. 손그림 스케치 패널 (기본 숨김) -->
-                    <div id="panel-draw" class="border border-outline-variant/20 rounded-xl p-4 bg-surface-container-low/10 hidden space-y-3 text-center">
+                    <div id="panel-draw" class="border border-outline-variant/20 rounded-lg p-3 bg-surface-container-low/10 hidden space-y-3 text-center">
                         <div id="sketch-thumbnail-container" class="hidden relative rounded-xl border border-outline-variant/30 overflow-hidden bg-white max-h-40 max-w-[200px] mx-auto p-1">
                             <img id="sketch-thumbnail-img" src="" class="object-contain w-full max-h-36"/>
                             <button type="button" id="remove-sketch-btn" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-7 h-7 rounded-full flex items-center justify-center">
@@ -389,9 +404,9 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="pt-4 border-t border-outline-variant/10 flex gap-4">
-                    <button type="button" class="flex-1 px-4 py-3 rounded-2xl text-on-surface-variant font-semibold hover:bg-surface-container-high transition-colors active:scale-95 text-sm modal-close-btn">취소</button>
-                    <button type="submit" class="flex-[2] bg-primary text-on-primary px-4 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary/95 transition-all active:scale-95 text-sm">
+                <div class="pt-3 border-t border-outline-variant/10 flex gap-2">
+                    <button type="button" class="flex-1 px-4 py-2.5 rounded-lg text-on-surface-variant font-semibold hover:bg-surface-container-high transition-colors active:scale-95 text-sm modal-close-btn">취소</button>
+                    <button type="submit" class="flex-[2] bg-primary text-on-primary px-4 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary/95 transition-all active:scale-95 text-sm">
                         <span id="submit-btn-text">생각 올리기</span>
                         <span class="material-symbols-outlined text-sm">rocket_launch</span>
                     </button>
