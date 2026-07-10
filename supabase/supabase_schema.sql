@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS private;
 CREATE TABLE IF NOT EXISTS public.boards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
-    title TEXT NOT NULL DEFAULT '새 보드',
+    title TEXT NOT NULL DEFAULT '새로운 생각',
     description TEXT,
     sort_order SERIAL
 );

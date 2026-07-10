@@ -5,7 +5,7 @@
     }
     root.IdeaCanvasBoards = moduleApi;
 })(typeof globalThis !== 'undefined' ? globalThis : window, function () {
-    const DEFAULT_BOARD_TITLE = '새 보드';
+    const DEFAULT_BOARD_TITLE = '새로운 생각';
 
     function getBoardIdFromUrl(url) {
         try {

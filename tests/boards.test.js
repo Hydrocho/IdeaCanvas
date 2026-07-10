@@ -62,7 +62,7 @@ test('reads board_id from a URL', () => {
 });
 
 test('uses a readable default board title', () => {
-  assert.equal(DEFAULT_BOARD_TITLE, '새 보드');
+  assert.equal(DEFAULT_BOARD_TITLE, '새로운 생각');
 });
 
 test('normalizes board data', () => {
