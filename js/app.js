@@ -40,8 +40,6 @@ let isEraserMode = false;
 let uploadedImageBase64 = null; // 첨부용 이미지
 let sketchImageBase64 = null; // 손그림 이미지
 let parsedLinkPreview = null; // 웹링크 미리보기 객체
-let attachedFileData = null; // 파일 data URL
-let attachedFileMeta = null; // 파일 메타데이터
 
 // --- 2. DOM 요소 취득 ---
 const elements = {
@@ -60,7 +58,6 @@ const elements = {
     removeImageBtn: document.getElementById('remove-image-btn'),
     removeLinkBtn: document.getElementById('remove-link-btn'),
     removeSketchBtn: document.getElementById('remove-sketch-btn'),
-    removeFileBtn: document.getElementById('remove-file-btn'),
 
     // Modals
     settingsModal: document.getElementById('settings-modal'),
@@ -77,7 +74,6 @@ const elements = {
     noteTitle: document.getElementById('note-title'),
     noteContent: document.getElementById('note-content'),
     imageFileInput: document.getElementById('image-file-input'),
-    attachmentFileInput: document.getElementById('attachment-file-input'),
     imageUrlInput: document.getElementById('image-url-input'),
     linkUrlInput: document.getElementById('link-url-input'),
     searchInput: document.getElementById('search-input'),
@@ -94,9 +90,6 @@ const elements = {
     linkPreviewDesc: document.getElementById('link-preview-desc'),
     sketchThumbnailContainer: document.getElementById('sketch-thumbnail-container'),
     sketchThumbnailImg: document.getElementById('sketch-thumbnail-img'),
-    filePreviewBox: document.getElementById('file-preview-box'),
-    filePreviewName: document.getElementById('file-preview-name'),
-    filePreviewMeta: document.getElementById('file-preview-meta'),
     submitNoteBtn: document.getElementById('submit-note-btn'),
 
     // Canvas
@@ -414,7 +407,6 @@ function renderNotes() {
         const hasImage = !!note.image_url;
         const hasSketch = !!note.drawing_data;
         const hasLink = !!note.link_preview;
-        const hasFile = !!note.file_data;
 
         // 좋아요 상태
         const likesCount = likeCountMap[note.id] || 0;
@@ -474,14 +466,6 @@ function renderNotes() {
 
                 <!-- 링크 미리보기 노출 -->
                 ${hasLink ? renderLinkPreviewMarkup(note.link_preview, note.link_url) : ''}
-
-                <!-- 파일 첨부 노출 -->
-                ${hasFile ? `
-                    <a href="${note.file_data}" download="${escapeHtml(note.file_name || 'attachment')}" class="mb-3 flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-white/70 px-3 py-2 text-xs font-semibold text-on-surface hover:border-primary hover:text-primary">
-                        <span class="material-symbols-outlined text-lg">description</span>
-                        <span class="min-w-0 flex-1 truncate">${escapeHtml(note.file_name || '첨부 파일')}</span>
-                    </a>
-                ` : ''}
 
                 <!-- 텍스트 영역 -->
                 <div class="flex-1">
@@ -930,7 +914,7 @@ async function handleNoteSubmit(e) {
     const author = elements.noteAuthor.value.trim() || '익명';
     const title = elements.noteTitle.value.trim();
     const content = elements.noteContent.value.trim();
-    const hasAttachment = Boolean(uploadedImageBase64 || elements.imageUrlInput.value.trim() || sketchImageBase64 || parsedLinkPreview || attachedFileData);
+    const hasAttachment = Boolean(uploadedImageBase64 || elements.imageUrlInput.value.trim() || sketchImageBase64 || parsedLinkPreview);
 
     if (!canCurrentUserWrite()) {
         alert('현재 보드는 글쓰기 기능이 꺼져 있습니다.');
@@ -964,9 +948,6 @@ async function handleNoteSubmit(e) {
         drawing_data: sketchImageBase64 || null,
         link_url: elements.linkUrlInput.value.trim() || null,
         link_preview: parsedLinkPreview,
-        file_name: attachedFileMeta?.name || null,
-        file_type: attachedFileMeta?.type || null,
-        file_data: attachedFileData,
         section: section,
         board_id: currentBoardId
     };
@@ -1090,17 +1071,6 @@ async function openEditNoteModal(id) {
 
         parsedLinkPreview = note.link_preview;
         renderLinkPreviewBox(note.link_preview);
-    }
-
-    if (note.file_data) {
-        openToolPanel('file');
-        attachedFileData = note.file_data;
-        attachedFileMeta = {
-            name: note.file_name || '첨부 파일',
-            type: note.file_type || 'application/octet-stream',
-            size: 0,
-        };
-        renderFilePreview();
     }
 
     const modalTitle = document.getElementById('modal-title');
@@ -1294,8 +1264,7 @@ function hasNoteAttachment() {
         uploadedImageBase64 ||
         elements.imageUrlInput?.value.trim() ||
         sketchImageBase64 ||
-        parsedLinkPreview ||
-        attachedFileData
+        parsedLinkPreview
     );
 }
 
@@ -1463,14 +1432,9 @@ function resetNoteForm() {
     elements.imagePreviewContainer.classList.add('hidden');
     elements.linkPreviewBox.classList.add('hidden');
     elements.sketchThumbnailContainer.classList.add('hidden');
-    if (elements.attachmentFileInput) elements.attachmentFileInput.value = '';
-    if (elements.filePreviewBox) elements.filePreviewBox.classList.add('hidden');
-    
     uploadedImageBase64 = null;
     sketchImageBase64 = null;
     parsedLinkPreview = null;
-    attachedFileData = null;
-    attachedFileMeta = null;
     
     const modalTitle = document.getElementById('modal-title');
     if (modalTitle) modalTitle.textContent = '새 생각 더하기';
@@ -1500,12 +1464,12 @@ function resetNoteForm() {
     });
 
     // 첨부 패널 및 단추 상태 초기화
-    const panels = ['panel-image', 'panel-link', 'panel-draw', 'panel-file'];
+    const panels = ['panel-image', 'panel-link', 'panel-draw'];
     panels.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
     });
-    const btns = ['tool-btn-image', 'tool-btn-link', 'tool-btn-youtube', 'tool-btn-draw', 'tool-btn-file'];
+    const btns = ['tool-btn-image', 'tool-btn-link', 'tool-btn-youtube', 'tool-btn-draw'];
     btns.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -1537,49 +1501,6 @@ function handleImageFileSelect(e) {
         updateNoteSubmitState();
     };
     reader.readAsDataURL(file);
-}
-
-function handleAttachmentFileSelect(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const allowedTypes = [
-        'application/pdf',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    ];
-    const hasAllowedExtension = /\.(pdf|ppt|pptx)$/i.test(file.name);
-    if (!allowedTypes.includes(file.type) && !hasAllowedExtension) {
-        alert('PDF 또는 PPT 파일만 첨부할 수 있습니다.');
-        e.target.value = '';
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        attachedFileData = event.target.result;
-        attachedFileMeta = {
-            name: file.name,
-            type: file.type || 'application/octet-stream',
-            size: file.size,
-        };
-        renderFilePreview();
-        updateNoteSubmitState();
-    };
-    reader.readAsDataURL(file);
-}
-
-function renderFilePreview() {
-    if (!elements.filePreviewBox || !attachedFileMeta) return;
-    elements.filePreviewName.textContent = attachedFileMeta.name;
-    elements.filePreviewMeta.textContent = formatFileSize(attachedFileMeta.size);
-    elements.filePreviewBox.classList.remove('hidden');
-}
-
-function formatFileSize(bytes) {
-    if (!Number.isFinite(bytes)) return '';
-    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))}KB`;
-    return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }
 
 function extractFirstUrl(text) {
@@ -1934,8 +1855,7 @@ function bindGeneralEvents() {
         image: { btn: document.getElementById('tool-btn-image'), panel: document.getElementById('panel-image') },
         link: { btn: document.getElementById('tool-btn-link'), panel: document.getElementById('panel-link') },
         youtube: { btn: document.getElementById('tool-btn-youtube'), panel: document.getElementById('panel-link') },
-        draw: { btn: document.getElementById('tool-btn-draw'), panel: document.getElementById('panel-draw') },
-        file: { btn: document.getElementById('tool-btn-file'), panel: document.getElementById('panel-file') }
+        draw: { btn: document.getElementById('tool-btn-draw'), panel: document.getElementById('panel-draw') }
     };
 
     Object.keys(toolButtons).forEach(key => {
@@ -1961,8 +1881,6 @@ function bindGeneralEvents() {
                     } else if (key === 'image') {
                         const imgUrlInput = document.getElementById('image-url-input');
                         if (imgUrlInput) imgUrlInput.focus();
-                    } else if (key === 'file') {
-                        if (elements.attachmentFileInput) elements.attachmentFileInput.click();
                     }
                 } else {
                     if (key !== 'youtube') item.panel.classList.add('hidden');
@@ -1975,10 +1893,9 @@ function bindGeneralEvents() {
 
 
 
-    // 5. 텍스트 필드/파일 첨부 이벤트 바인딩
+    // 5. 텍스트 필드/첨부 이벤트 바인딩
     elements.noteForm.addEventListener('submit', handleNoteSubmit);
     elements.imageFileInput.addEventListener('change', handleImageFileSelect);
-    if (elements.attachmentFileInput) elements.attachmentFileInput.addEventListener('change', handleAttachmentFileSelect);
     elements.linkUrlInput.addEventListener('input', debounce(handleLinkInput, 500));
     elements.noteTitle.addEventListener('input', updateNoteSubmitState);
     elements.noteContent.addEventListener('input', () => {
@@ -2008,14 +1925,6 @@ function bindGeneralEvents() {
         elements.sketchThumbnailContainer.classList.add('hidden');
         updateNoteSubmitState();
     });
-    if (elements.removeFileBtn) elements.removeFileBtn.addEventListener('click', () => {
-        attachedFileData = null;
-        attachedFileMeta = null;
-        if (elements.attachmentFileInput) elements.attachmentFileInput.value = '';
-        if (elements.filePreviewBox) elements.filePreviewBox.classList.add('hidden');
-        updateNoteSubmitState();
-    });
-
     // 7. 손그림 드로잉 패드 오픈
     elements.openDrawingPadBtn.addEventListener('click', () => {
         elements.drawingModal.classList.remove('hidden');

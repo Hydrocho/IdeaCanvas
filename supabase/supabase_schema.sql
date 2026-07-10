@@ -35,9 +35,6 @@ CREATE TABLE IF NOT EXISTS public.notes (
     drawing_data TEXT,
     link_url TEXT,
     link_preview JSONB,
-    file_name TEXT,
-    file_type TEXT,
-    file_data TEXT,
     section TEXT DEFAULT '새 섹션'
 );
 
@@ -79,9 +76,6 @@ CREATE TABLE IF NOT EXISTS public.board_settings (
 ALTER TABLE public.notes ADD COLUMN IF NOT EXISTS board_id UUID REFERENCES public.boards(id) ON DELETE CASCADE;
 ALTER TABLE public.notes ADD COLUMN IF NOT EXISTS author_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public.notes ADD COLUMN IF NOT EXISTS section TEXT DEFAULT '새 섹션';
-ALTER TABLE public.notes ADD COLUMN IF NOT EXISTS file_name TEXT;
-ALTER TABLE public.notes ADD COLUMN IF NOT EXISTS file_type TEXT;
-ALTER TABLE public.notes ADD COLUMN IF NOT EXISTS file_data TEXT;
 ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS author_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public.likes ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public.sections ADD COLUMN IF NOT EXISTS board_id UUID REFERENCES public.boards(id) ON DELETE CASCADE;
