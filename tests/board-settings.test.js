@@ -25,6 +25,14 @@ function createTableStub(result, capture) {
       capture.push(['upsert', payload, options]);
       return this;
     },
+    update(payload) {
+      capture.push(['update', payload]);
+      return this;
+    },
+    insert(payload) {
+      capture.push(['insert', payload]);
+      return this;
+    },
     single() {
       capture.push(['single']);
       return Promise.resolve(result);
@@ -158,11 +166,83 @@ test('saves board settings with board_id when provided', async () => {
     'board-1'
   );
 
-  assert.deepEqual(calls[1], ['upsert', {
-    id: 'board:board-1',
-    board_id: 'board-1',
-    title: '보드 제목',
-    write_enabled: true,
-    updated_at: '2026-07-08T00:00:00.000Z',
-  }, { onConflict: 'board_id' }]);
+  assert.deepEqual(calls, [
+    ['from', 'board_settings'],
+    ['update', {
+      title: '보드 제목',
+      write_enabled: true,
+      updated_at: '2026-07-08T00:00:00.000Z',
+    }],
+    ['eq', 'board_id', 'board-1'],
+    ['select', undefined],
+    ['maybeSingle'],
+  ]);
+});
+
+test('inserts board settings by board_id when no existing row is found', async () => {
+  const calls = [];
+  const client = {
+    from(table) {
+      calls.push(['from', table]);
+      return {
+        update(payload) {
+          calls.push(['update', payload]);
+          return this;
+        },
+        insert(payload) {
+          calls.push(['insert', payload]);
+          return this;
+        },
+        eq(column, value) {
+          calls.push(['eq', column, value]);
+          return this;
+        },
+        select(columns) {
+          calls.push(['select', columns]);
+          return this;
+        },
+        maybeSingle() {
+          calls.push(['maybeSingle']);
+          return Promise.resolve({ data: null, error: null });
+        },
+        single() {
+          calls.push(['single']);
+          return Promise.resolve({
+            data: { id: 'board:board-1', board_id: 'board-1', title: '보드 제목', write_enabled: true },
+            error: null,
+          });
+        },
+      };
+    },
+  };
+
+  await saveBoardSettingsToServer(
+    client,
+    { id: 'default', title: '기존', write_enabled: false },
+    { title: '보드 제목', write_enabled: true },
+    () => '2026-07-08T00:00:00.000Z',
+    'board-1'
+  );
+
+  assert.deepEqual(calls, [
+    ['from', 'board_settings'],
+    ['update', {
+      title: '보드 제목',
+      write_enabled: true,
+      updated_at: '2026-07-08T00:00:00.000Z',
+    }],
+    ['eq', 'board_id', 'board-1'],
+    ['select', undefined],
+    ['maybeSingle'],
+    ['from', 'board_settings'],
+    ['insert', {
+      id: 'board:board-1',
+      board_id: 'board-1',
+      title: '보드 제목',
+      write_enabled: true,
+      updated_at: '2026-07-08T00:00:00.000Z',
+    }],
+    ['select', undefined],
+    ['single'],
+  ]);
 });

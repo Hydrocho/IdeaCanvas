@@ -59,10 +59,35 @@
         };
         if (boardId) payload.board_id = boardId;
 
-        const upsertOptions = boardId ? { onConflict: 'board_id' } : undefined;
+        if (boardId) {
+            const updatePayload = {
+                title: payload.title,
+                write_enabled: payload.write_enabled,
+                updated_at: payload.updated_at,
+            };
+            const { data: updatedData, error: updateError } = await client
+                .from('board_settings')
+                .update(updatePayload)
+                .eq('board_id', boardId)
+                .select()
+                .maybeSingle();
+
+            if (updateError) throw updateError;
+            if (updatedData) return fallbackUtils.normalizeBoardSettings(updatedData);
+
+            const { data: insertedData, error: insertError } = await client
+                .from('board_settings')
+                .insert(payload)
+                .select()
+                .single();
+
+            if (insertError) throw insertError;
+            return fallbackUtils.normalizeBoardSettings(insertedData);
+        }
+
         const { data, error } = await client
             .from('board_settings')
-            .upsert(payload, upsertOptions)
+            .upsert(payload)
             .select()
             .single();
 
