@@ -1063,7 +1063,8 @@ async function openEditNoteModal(id) {
         renderLinkPreviewBox(note.link_preview);
     }
 
-    document.getElementById('modal-title').textContent = '생각 수정하기';
+    const modalTitle = document.getElementById('modal-title');
+    if (modalTitle) modalTitle.textContent = '생각 수정하기';
     document.getElementById('submit-btn-text').textContent = '수정 완료';
     elements.noteModal.classList.remove('hidden');
 }
@@ -1400,7 +1401,8 @@ function resetNoteForm() {
     sketchImageBase64 = null;
     parsedLinkPreview = null;
     
-    document.getElementById('modal-title').textContent = '새 생각 더하기';
+    const modalTitle = document.getElementById('modal-title');
+    if (modalTitle) modalTitle.textContent = '새 생각 더하기';
     document.getElementById('submit-btn-text').textContent = '생각 올리기';
 
     // 기본 배경색 단추(첫 번째) 체크
