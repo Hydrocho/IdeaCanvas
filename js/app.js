@@ -1576,7 +1576,7 @@ function bindGeneralEvents() {
     };
     
     if (elements.gridNewNoteBtn) elements.gridNewNoteBtn.addEventListener('click', openNoteModal);
-    elements.fabNewNoteBtn.addEventListener('click', openNoteModal);
+    if (elements.fabNewNoteBtn) elements.fabNewNoteBtn.addEventListener('click', openNoteModal);
 
     document.querySelectorAll('.modal-close-trigger, .modal-close-btn').forEach(btn => {
         btn.addEventListener('click', closeAllModals);
