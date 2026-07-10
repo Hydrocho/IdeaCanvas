@@ -1575,7 +1575,7 @@ function bindGeneralEvents() {
         elements.noteModal.classList.remove('hidden');
     };
     
-    elements.gridNewNoteBtn.addEventListener('click', openNoteModal);
+    if (elements.gridNewNoteBtn) elements.gridNewNoteBtn.addEventListener('click', openNoteModal);
     elements.fabNewNoteBtn.addEventListener('click', openNoteModal);
 
     document.querySelectorAll('.modal-close-trigger, .modal-close-btn').forEach(btn => {
