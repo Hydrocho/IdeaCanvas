@@ -9,6 +9,7 @@ const boardsApi = globalThis.IdeaCanvasBoards;
 const boardSettingsApi = globalThis.IdeaCanvasBoardSettings;
 const sectionsApi = globalThis.IdeaCanvasSections;
 const authUtils = globalThis.IdeaCanvasAuth;
+const likesApi = globalThis.IdeaCanvasLikes;
 const DEFAULT_SECTIONS = [
     { id: 'sec-1', name: sectionUtils.DEFAULT_SECTION_NAME, sort_order: 1 }
 ];
@@ -20,6 +21,7 @@ let isSectionViewEnabled = false;
 let commentDataMap = {}; // noteId => [comments]
 let likeCountMap = {}; // noteId => count
 let userLikesMap = {}; // noteId => true/false (현재 사용자가 좋아요를 눌렀는지 여부)
+const pendingLikeNoteIds = new Set();
 
 // 사용자 식별을 위한 로컬 스토리지 정보
 let authorId = localStorage.getItem('ideacanvas_author_id');
@@ -206,16 +208,9 @@ async function loadAllData() {
         if (likesError) throw likesError;
 
         // 좋아요 집계
-        likeCountMap = {};
-        userLikesMap = {};
-        if (likes) {
-            likes.forEach(l => {
-                likeCountMap[l.note_id] = (likeCountMap[l.note_id] || 0) + 1;
-                if (l.user_session_id === authorId) {
-                    userLikesMap[l.note_id] = true;
-                }
-            });
-        }
+        const likeSummary = likesApi.buildLikeSummary(likes, authorId);
+        likeCountMap = likeSummary.likeCountMap;
+        userLikesMap = likeSummary.userLikesMap;
 
         // 4. 섹션 가져오기
         try {
@@ -1079,8 +1074,10 @@ async function openEditNoteModal(id) {
 // 좋아요 토글
 async function toggleLike(noteId) {
     if (!supabaseClient) return;
+    if (pendingLikeNoteIds.has(noteId)) return;
 
     const userLiked = userLikesMap[noteId] || false;
+    pendingLikeNoteIds.add(noteId);
 
     try {
         if (userLiked) {
@@ -1094,16 +1091,14 @@ async function toggleLike(noteId) {
             if (error) throw error;
             userLikesMap[noteId] = false;
         } else {
-            // 좋아요 추가 (Insert)
-            const { error } = await supabaseClient
-                .from('likes')
-                .insert([{ note_id: noteId, user_session_id: authorId, user_id: currentUser?.id || null }]);
-
-            if (error) throw error;
+            // 좋아요 추가
+            await likesApi.saveLikeToServer(supabaseClient, noteId, authorId, currentUser?.id || null);
             userLikesMap[noteId] = true;
         }
     } catch (e) {
         console.error("Like toggle failed:", e);
+    } finally {
+        pendingLikeNoteIds.delete(noteId);
     }
 }
 

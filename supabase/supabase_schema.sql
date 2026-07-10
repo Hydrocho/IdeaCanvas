@@ -82,6 +82,31 @@ ALTER TABLE public.sections ADD COLUMN IF NOT EXISTS board_id UUID REFERENCES pu
 ALTER TABLE public.board_settings ADD COLUMN IF NOT EXISTS board_id UUID REFERENCES public.boards(id) ON DELETE CASCADE;
 ALTER TABLE public.board_settings ADD COLUMN IF NOT EXISTS write_enabled BOOLEAN;
 ALTER TABLE public.board_settings ALTER COLUMN write_enabled SET DEFAULT true;
+DELETE FROM public.likes
+WHERE id IN (
+    SELECT id
+    FROM (
+        SELECT id,
+               ROW_NUMBER() OVER (
+                   PARTITION BY note_id, user_session_id
+                   ORDER BY created_at ASC, id ASC
+               ) AS duplicate_rank
+        FROM public.likes
+    ) ranked_likes
+    WHERE duplicate_rank > 1
+);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'likes_note_id_user_session_id_key'
+          AND conrelid = 'public.likes'::regclass
+    ) THEN
+        ALTER TABLE public.likes
+        ADD CONSTRAINT likes_note_id_user_session_id_key UNIQUE (note_id, user_session_id);
+    END IF;
+END $$;
 DO $$
 BEGIN
     IF EXISTS (
