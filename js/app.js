@@ -567,15 +567,27 @@ function renderBoardSettings() {
     if (titleEl) titleEl.textContent = currentBoardSettings.title;
     if (inputEl) inputEl.value = currentBoardSettings.title;
     if (toggleAuthWrite) toggleAuthWrite.checked = currentBoardSettings.write_enabled;
+    renderBoardAccessUI();
 }
 
 function renderBoardNavigationLinks() {
-    const adminLink = document.getElementById('board-admin-link');
-    if (adminLink) {
-        adminLink.href = currentBoardId
-            ? `board-admin.html?board_id=${encodeURIComponent(currentBoardId)}`
-            : 'index.html';
-    }
+    const homeLink = document.getElementById('board-home-link');
+    if (homeLink) homeLink.href = 'index.html';
+}
+
+function canCurrentUserManageBoard() {
+    return authUtils.canCreateBoard(currentProfile);
+}
+
+function renderBoardAccessUI() {
+    const canManage = canCurrentUserManageBoard();
+    const homeLink = document.getElementById('board-home-link');
+    const controls = document.getElementById('board-settings-controls');
+    const locked = document.getElementById('board-settings-locked');
+
+    if (homeLink) homeLink.classList.toggle('hidden', !canManage);
+    if (controls) controls.classList.toggle('hidden', !canManage);
+    if (locked) locked.classList.toggle('hidden', canManage);
 }
 
 async function loadBoardSettings() {
@@ -1589,6 +1601,10 @@ function bindGeneralEvents() {
         toggleAuthWrite.checked = currentBoardSettings.write_enabled;
         toggleAuthWrite.addEventListener('change', async (e) => {
             const nextValue = e.target.checked;
+            if (!canCurrentUserManageBoard()) {
+                e.target.checked = currentBoardSettings.write_enabled;
+                return;
+            }
             try {
                 await saveBoardSettings({ write_enabled: nextValue });
             } catch (err) {
@@ -1622,6 +1638,7 @@ function bindGeneralEvents() {
             if (emailDisplay) emailDisplay.textContent = '';
             if (elements.noteAuthor) elements.noteAuthor.value = '';
         }
+        renderBoardAccessUI();
     }
 
     async function refreshAuthState(sessionUser) {
@@ -1693,7 +1710,6 @@ function bindGeneralEvents() {
                 });
                 if (error) throw error;
                 if (data.user) await refreshAuthState(data.user);
-                alert('\uad50\uc0ac \uac00\uc785\uc774 \uc811\uc218\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \ud544\uc694\ud558\uba74 \uc774\uba54\uc77c\uc744 \ud655\uc778\ud558\uace0, \ub9c8\uc2a4\ud130 \uc2b9\uc778 \ud6c4 \uad50\uc0ac \uad8c\ud55c\uc744 \uc0ac\uc6a9\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4.');
             } catch (err) {
                 alert('\uad50\uc0ac \uac00\uc785 \uc2e4\ud328: ' + err.message);
             } finally {
@@ -1909,6 +1925,7 @@ function initBoardTitleEditor() {
 
     // 더블클릭 시 편집 모드로 전환
     container.addEventListener('dblclick', () => {
+        if (!canCurrentUserManageBoard()) return;
         titleEl.classList.add('hidden');
         inputEl.classList.remove('hidden');
         inputEl.focus();
@@ -1917,6 +1934,12 @@ function initBoardTitleEditor() {
 
     // 편집 완료 함수
     const saveTitle = async () => {
+        if (!canCurrentUserManageBoard()) {
+            renderBoardSettings();
+            titleEl.classList.remove('hidden');
+            inputEl.classList.add('hidden');
+            return;
+        }
         const newTitle = inputEl.value.trim() || boardSettingsUtils.DEFAULT_BOARD_SETTINGS.title;
         titleEl.textContent = newTitle;
         inputEl.value = newTitle;

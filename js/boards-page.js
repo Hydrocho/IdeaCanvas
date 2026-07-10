@@ -414,7 +414,7 @@
             alert(passwordConfirmation.message);
             return;
         }
-        const { error } = await supabaseClient.auth.signUp({
+        const { data, error } = await supabaseClient.auth.signUp({
             email,
             password,
             options: { data: { display_name: displayName } },
@@ -423,8 +423,13 @@
             alert('가입 실패: ' + error.message);
             return;
         }
-        alert('가입 확인 메일을 확인해 주세요. 이메일 확인 후 로그인하면 교사 승인 대기 상태가 됩니다.');
-        showAuthPanel('login');
+        if (data?.user) {
+            await refreshSessionProfile();
+            await loadBoards();
+            await loadAccounts();
+        } else {
+            showAuthPanel('login');
+        }
     }
 
     async function handleResetPassword() {
