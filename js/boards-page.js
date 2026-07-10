@@ -1,10 +1,13 @@
 (function () {
     const supabaseUtils = globalThis.IdeaCanvasSupabase;
     const boardsApi = globalThis.IdeaCanvasBoards;
+    const boardSettingsApi = globalThis.IdeaCanvasBoardSettings;
+    const boardSettingsUtils = globalThis.BoardSettingsUtils;
     const authUtils = globalThis.IdeaCanvasAuth;
 
     let supabaseClient = null;
     let boards = [];
+    let boardSettingsByBoardId = {};
     let profiles = [];
     let searchQuery = '';
     let isConnected = false;
@@ -101,28 +104,31 @@
 
         elements.list.innerHTML = '';
         visibleBoards.forEach((board) => {
+            const boardSettings = boardSettingsByBoardId[board.id] || boardSettingsUtils.normalizeBoardSettings({ board_id: board.id, title: board.title });
+            const writeChecked = boardSettings.write_enabled ? 'checked' : '';
             const card = document.createElement('article');
             card.className = 'group overflow-hidden rounded-lg bg-surface-container-lowest border border-outline-variant/60 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md';
             card.innerHTML = `
                 <div class="h-1 bg-primary"></div>
                 <div class="p-5 flex min-h-48 flex-col gap-5">
                     <div>
-                        <input data-board-id="${escapeHtml(board.id)}" class="board-title-input w-full text-xl font-extrabold bg-transparent border-b border-transparent hover:border-outline-variant focus:border-primary focus:ring-0 outline-none px-0 py-1" value="${escapeHtml(board.title)}" aria-label="보드 이름"/>
+                        <h3 data-action="edit-board-title" data-board-id="${escapeHtml(board.id)}" class="board-title-text w-full cursor-text text-xl font-extrabold text-on-surface px-0 py-1" title="더블 클릭해서 이름 변경">${escapeHtml(board.title)}</h3>
+                        <input data-board-id="${escapeHtml(board.id)}" class="board-title-input hidden w-full text-xl font-extrabold bg-transparent border-b border-primary focus:ring-0 outline-none px-0 py-1" value="${escapeHtml(board.title)}" aria-label="보드 이름"/>
                         <p class="text-xs text-on-surface-variant mt-2">보드 ID: ${escapeHtml(board.id)}</p>
                     </div>
-                    <div class="mt-auto flex flex-wrap gap-2">
+                    <div class="mt-auto flex flex-wrap items-center gap-2">
                         <a href="board.html?board_id=${encodeURIComponent(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90">
                             <span class="material-symbols-outlined text-base">open_in_new</span>
                             열기
                         </a>
-                        <a href="board-admin.html?board_id=${encodeURIComponent(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold hover:bg-surface-container-high">
-                            <span class="material-symbols-outlined text-base">settings</span>
-                            관리
-                        </a>
-                        <button type="button" data-action="rename-board" data-board-id="${escapeHtml(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold hover:bg-surface-container-high">
-                            <span class="material-symbols-outlined text-base">edit</span>
-                            이름 저장
-                        </button>
+                        <label class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold hover:bg-surface-container-high cursor-pointer select-none">
+                            <span>글쓰기 허용</span>
+                            <span class="relative inline-flex items-center">
+                                <input type="checkbox" data-action="toggle-write-enabled" data-board-id="${escapeHtml(board.id)}" class="sr-only peer" ${writeChecked}/>
+                                <span class="block h-5 w-9 rounded-full bg-outline-variant transition peer-checked:bg-primary"></span>
+                                <span class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
+                            </span>
+                        </label>
                         <button type="button" data-action="delete-board" data-board-id="${escapeHtml(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-outline-variant/70 text-xs font-bold text-error hover:bg-red-50">
                             <span class="material-symbols-outlined text-base">delete</span>
                             삭제
@@ -158,6 +164,7 @@
 
         if (!dashboardAllowed) {
             boards = [];
+            boardSettingsByBoardId = {};
             profiles = [];
             if (elements.list) elements.list.innerHTML = '';
             setStatus('');
@@ -219,17 +226,23 @@
     async function loadBoards() {
         if (!canUseDashboard()) {
             boards = [];
+            boardSettingsByBoardId = {};
             renderAuthState();
             return;
         }
         if (!supabaseClient) {
             boards = [];
+            boardSettingsByBoardId = {};
             setConnected(false);
             renderBoards();
             return;
         }
 
         boards = await boardsApi.loadBoardsFromServer(supabaseClient);
+        boardSettingsByBoardId = await boardSettingsApi.loadBoardSettingsByBoardIdsFromServer(
+            supabaseClient,
+            boards.map(board => board.id)
+        );
         setConnected(true);
         renderBoards();
         setStatus('');
@@ -322,8 +335,15 @@
         }
         const board = boards.find(item => item.id === boardId);
         const input = elements.list.querySelector(`input[data-board-id="${cssEscape(boardId)}"]`);
+        const titleEl = elements.list.querySelector(`.board-title-text[data-board-id="${cssEscape(boardId)}"]`);
         const nextTitle = input ? input.value.trim() : '';
-        if (!board || !nextTitle || nextTitle === board.title) return;
+        if (!board) return;
+        if (!nextTitle || nextTitle === board.title) {
+            if (input) input.value = board.title;
+            if (titleEl) titleEl.classList.remove('hidden');
+            if (input) input.classList.add('hidden');
+            return;
+        }
 
         setStatus('보드 이름 저장 중...');
         try {
@@ -335,6 +355,61 @@
             console.error('Rename board failed:', error);
             renderBoards();
             setStatus('보드 이름 저장에 실패했습니다.');
+        }
+    }
+
+    async function updateBoardWriteEnabled(boardId, writeEnabled, control) {
+        if (!authUtils.canCreateBoard(currentProfile)) {
+            if (control) control.checked = !writeEnabled;
+            setStatus('승인된 교사 또는 마스터만 보드 설정을 수정할 수 있습니다.');
+            return;
+        }
+        const board = boards.find(item => item.id === boardId);
+        if (!board) return;
+        const currentSettings = boardSettingsByBoardId[boardId] || boardSettingsUtils.normalizeBoardSettings({
+            board_id: boardId,
+            title: board.title,
+        });
+
+        setStatus('글쓰기 설정 저장 중...');
+        try {
+            const saved = await boardSettingsApi.saveBoardSettingsToServer(
+                supabaseClient,
+                currentSettings,
+                { title: board.title, write_enabled: writeEnabled },
+                undefined,
+                boardId
+            );
+            boardSettingsByBoardId[boardId] = saved;
+            setStatus('글쓰기 설정이 저장되었습니다.');
+        } catch (error) {
+            console.error('Save write setting failed:', error);
+            if (control) control.checked = currentSettings.write_enabled;
+            setStatus('글쓰기 설정 저장에 실패했습니다.');
+        }
+    }
+
+    function startBoardTitleEdit(boardId) {
+        const titleEl = elements.list.querySelector(`.board-title-text[data-board-id="${cssEscape(boardId)}"]`);
+        const input = elements.list.querySelector(`input[data-board-id="${cssEscape(boardId)}"]`);
+        if (!titleEl || !input) return;
+        titleEl.classList.add('hidden');
+        input.classList.remove('hidden');
+        input.focus();
+        input.select();
+    }
+
+    function finishBoardTitleEdit(boardId, shouldSave = true) {
+        const titleEl = elements.list.querySelector(`.board-title-text[data-board-id="${cssEscape(boardId)}"]`);
+        const input = elements.list.querySelector(`input[data-board-id="${cssEscape(boardId)}"]`);
+        if (!titleEl || !input) return;
+        if (shouldSave) {
+            renameBoard(boardId);
+        } else {
+            const board = boards.find(item => item.id === boardId);
+            if (board) input.value = board.title;
+            titleEl.classList.remove('hidden');
+            input.classList.add('hidden');
         }
     }
 
@@ -457,6 +532,7 @@
         currentProfile = null;
         authPanelMode = 'closed';
         boards = [];
+        boardSettingsByBoardId = {};
         profiles = [];
         renderAuthState();
     }
@@ -482,13 +558,43 @@
 
         if (action === 'create-board') {
             createBoard();
-        } else if (action === 'rename-board') {
-            renameBoard(boardId);
         } else if (action === 'delete-board') {
             deleteBoard(boardId);
         } else if (userId) {
             handleAccountAction(action, userId);
         }
+    }
+
+    function handleListChange(event) {
+        const actionElement = event.target.closest('[data-action="toggle-write-enabled"]');
+        if (!actionElement) return;
+        const boardId = actionElement.getAttribute('data-board-id');
+        updateBoardWriteEnabled(boardId, actionElement.checked, actionElement);
+    }
+
+    function handleListDoubleClick(event) {
+        const actionElement = event.target.closest('[data-action="edit-board-title"]');
+        if (!actionElement) return;
+        startBoardTitleEdit(actionElement.getAttribute('data-board-id'));
+    }
+
+    function handleListKeydown(event) {
+        const input = event.target.closest('.board-title-input');
+        if (!input) return;
+        const boardId = input.getAttribute('data-board-id');
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            input.blur();
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            finishBoardTitleEdit(boardId, false);
+        }
+    }
+
+    function handleListFocusOut(event) {
+        const input = event.target.closest('.board-title-input');
+        if (!input) return;
+        finishBoardTitleEdit(input.getAttribute('data-board-id'), true);
     }
 
     function handleSearchInput(event) {
@@ -530,6 +636,10 @@
 
         if (elements.createButton) elements.createButton.addEventListener('click', createBoard);
         if (elements.list) elements.list.addEventListener('click', handleListClick);
+        if (elements.list) elements.list.addEventListener('change', handleListChange);
+        if (elements.list) elements.list.addEventListener('dblclick', handleListDoubleClick);
+        if (elements.list) elements.list.addEventListener('keydown', handleListKeydown);
+        if (elements.list) elements.list.addEventListener('focusout', handleListFocusOut);
         if (elements.searchInput) elements.searchInput.addEventListener('input', handleSearchInput);
         if (elements.openLoginButton) elements.openLoginButton.addEventListener('click', () => showAuthPanel('login'));
         if (elements.openSignupButton) elements.openSignupButton.addEventListener('click', () => showAuthPanel('signup'));

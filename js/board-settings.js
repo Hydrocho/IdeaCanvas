@@ -22,6 +22,25 @@
         return data ? fallbackUtils.normalizeBoardSettings(data) : null;
     }
 
+    async function loadBoardSettingsByBoardIdsFromServer(client, boardIds) {
+        if (!client) throw new Error('Supabase client is not available');
+        const ids = Array.isArray(boardIds) ? boardIds.filter(Boolean) : [];
+        if (!ids.length) return {};
+
+        const { data, error } = await client
+            .from('board_settings')
+            .select('*')
+            .in('board_id', ids);
+
+        if (error) throw error;
+        return (data || []).reduce((settingsByBoardId, row) => {
+            if (row && row.board_id) {
+                settingsByBoardId[row.board_id] = fallbackUtils.normalizeBoardSettings(row);
+            }
+            return settingsByBoardId;
+        }, {});
+    }
+
     async function saveBoardSettingsToServer(client, currentSettings, nextSettings, now = () => new Date().toISOString(), boardId = '') {
         if (!client) throw new Error('Supabase client is not available');
 
@@ -31,7 +50,9 @@
         });
 
         const payload = {
-            id: normalized.id,
+            id: boardId && normalized.id === fallbackUtils.DEFAULT_BOARD_SETTINGS.id
+                ? `board:${boardId}`
+                : normalized.id,
             title: normalized.title,
             write_enabled: normalized.write_enabled,
             updated_at: now(),
@@ -50,6 +71,7 @@
 
     return {
         loadBoardSettingsFromServer,
+        loadBoardSettingsByBoardIdsFromServer,
         saveBoardSettingsToServer,
     };
 });

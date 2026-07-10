@@ -32,6 +32,7 @@
 
         return {
             id: settings.id || DEFAULT_BOARD_SETTINGS.id,
+            board_id: settings.board_id || '',
             title,
             write_enabled: resolveWriteEnabled(settings),
         };

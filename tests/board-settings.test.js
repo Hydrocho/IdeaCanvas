@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   loadBoardSettingsFromServer,
+  loadBoardSettingsByBoardIdsFromServer,
   saveBoardSettingsToServer,
 } = require('../js/board-settings');
 
@@ -78,6 +79,41 @@ test('loads board settings by board_id when provided', async () => {
   ]);
 });
 
+test('loads board settings for multiple board ids', async () => {
+  const calls = [];
+  const client = {
+    from(table) {
+      calls.push(['from', table]);
+      return {
+        select(columns) {
+          calls.push(['select', columns]);
+          return this;
+        },
+        in(column, values) {
+          calls.push(['in', column, values]);
+          return Promise.resolve({
+            data: [
+              { id: 's1', board_id: 'board-1', title: 'Board 1', write_enabled: false },
+              { id: 's2', board_id: 'board-2', title: 'Board 2', write_enabled: true },
+            ],
+            error: null,
+          });
+        },
+      };
+    },
+  };
+
+  const settings = await loadBoardSettingsByBoardIdsFromServer(client, ['board-1', 'board-2']);
+
+  assert.equal(settings['board-1'].write_enabled, false);
+  assert.equal(settings['board-2'].write_enabled, true);
+  assert.deepEqual(calls, [
+    ['from', 'board_settings'],
+    ['select', '*'],
+    ['in', 'board_id', ['board-1', 'board-2']],
+  ]);
+});
+
 test('saves normalized board settings with updated_at', async () => {
   const calls = [];
   const client = createClientStub({
@@ -123,7 +159,7 @@ test('saves board settings with board_id when provided', async () => {
   );
 
   assert.deepEqual(calls[1], ['upsert', {
-    id: 'default',
+    id: 'board:board-1',
     board_id: 'board-1',
     title: '보드 제목',
     write_enabled: true,

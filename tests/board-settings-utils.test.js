@@ -16,6 +16,7 @@ test('normalizes partial board settings from the server', () => {
     title: '  프로젝트 보드  ',
   }), {
     id: 'default',
+    board_id: '',
     title: '프로젝트 보드',
     write_enabled: true,
   });
