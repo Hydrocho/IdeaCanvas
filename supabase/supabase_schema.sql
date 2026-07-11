@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS public.board_settings (
     board_id UUID REFERENCES public.boards(id) ON DELETE CASCADE,
     title TEXT NOT NULL DEFAULT '새로운 생각',
     write_enabled BOOLEAN NOT NULL DEFAULT true,
+    comments_enabled BOOLEAN NOT NULL DEFAULT true,
+    likes_enabled BOOLEAN NOT NULL DEFAULT true,
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -82,6 +84,10 @@ ALTER TABLE public.sections ADD COLUMN IF NOT EXISTS board_id UUID REFERENCES pu
 ALTER TABLE public.board_settings ADD COLUMN IF NOT EXISTS board_id UUID REFERENCES public.boards(id) ON DELETE CASCADE;
 ALTER TABLE public.board_settings ADD COLUMN IF NOT EXISTS write_enabled BOOLEAN;
 ALTER TABLE public.board_settings ALTER COLUMN write_enabled SET DEFAULT true;
+ALTER TABLE public.board_settings ADD COLUMN IF NOT EXISTS comments_enabled BOOLEAN;
+ALTER TABLE public.board_settings ALTER COLUMN comments_enabled SET DEFAULT true;
+ALTER TABLE public.board_settings ADD COLUMN IF NOT EXISTS likes_enabled BOOLEAN;
+ALTER TABLE public.board_settings ALTER COLUMN likes_enabled SET DEFAULT true;
 DELETE FROM public.likes
 WHERE id IN (
     SELECT id

@@ -9,6 +9,8 @@
         id: 'default',
         title: '새로운 생각',
         write_enabled: true,
+        comments_enabled: true,
+        likes_enabled: true,
     };
 
     function resolveWriteEnabled(settings) {
@@ -19,6 +21,20 @@
             return !settings.auth_write;
         }
         return DEFAULT_BOARD_SETTINGS.write_enabled;
+    }
+
+    function resolveCommentsEnabled(settings) {
+        if (settings.comments_enabled === true || settings.comments_enabled === false) {
+            return settings.comments_enabled;
+        }
+        return DEFAULT_BOARD_SETTINGS.comments_enabled;
+    }
+
+    function resolveLikesEnabled(settings) {
+        if (settings.likes_enabled === true || settings.likes_enabled === false) {
+            return settings.likes_enabled;
+        }
+        return DEFAULT_BOARD_SETTINGS.likes_enabled;
     }
 
     function normalizeBoardSettings(settings) {
@@ -35,6 +51,8 @@
             board_id: settings.board_id || '',
             title,
             write_enabled: resolveWriteEnabled(settings),
+            comments_enabled: resolveCommentsEnabled(settings),
+            likes_enabled: resolveLikesEnabled(settings),
         };
     }
 

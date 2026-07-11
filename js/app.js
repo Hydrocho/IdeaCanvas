@@ -21,6 +21,7 @@ let isSectionViewEnabled = false;
 let commentDataMap = {}; // noteId => [comments]
 let likeCountMap = {}; // noteId => count
 let userLikesMap = {}; // noteId => true/false (현재 사용자가 좋아요를 눌렀는지 여부)
+let likeIdToNoteIdMap = {}; // like.id => like.note_id (Supabase Realtime DELETE 대응용)
 const pendingLikeNoteIds = new Set();
 
 // 사용자 식별을 위한 로컬 스토리지 정보
@@ -213,6 +214,14 @@ async function loadAllData() {
         likeCountMap = likeSummary.likeCountMap;
         userLikesMap = likeSummary.userLikesMap;
 
+        // likeIdToNoteIdMap 채우기 (DELETE 대응)
+        likeIdToNoteIdMap = {};
+        if (likes) {
+            likes.forEach(like => {
+                likeIdToNoteIdMap[like.id] = like.note_id;
+            });
+        }
+
         // 4. 섹션 가져오기
         try {
             const sections = await sectionsApi.loadSectionsFromServer(supabaseClient, currentBoardId);
@@ -299,18 +308,25 @@ function subscribeRealtime() {
             if (eventType === 'INSERT') {
                 const noteId = newRecord.note_id;
                 if (!isCurrentBoardNoteId(noteId)) return;
+                
+                likeIdToNoteIdMap[newRecord.id] = noteId;
+                
                 likeCountMap[noteId] = (likeCountMap[noteId] || 0) + 1;
                 if (newRecord.user_session_id === authorId) {
                     userLikesMap[noteId] = true;
                 }
             } else if (eventType === 'DELETE') {
-                // 삭제 시 old payload 에는 user_session_id 가 없을 수 있으므로 전체 로드해 싱크를 맞추거나 계산
-                // 빠른 대처를 위해 단일 카운트 마이너스
-                // (더 정확한 일치를 원하면 전체 갱신)
-                const noteId = oldRecord.note_id;
+                // Supabase Realtime DELETE의 경우 Replica Identity가 DEFAULT이면 PK인 id 정보만 오므로 mapping 이용
+                const noteId = oldRecord.note_id || likeIdToNoteIdMap[oldRecord.id];
                 if (noteId) {
                     if (!isCurrentBoardNoteId(noteId)) return;
                     likeCountMap[noteId] = Math.max(0, (likeCountMap[noteId] || 1) - 1);
+                    
+                    // 다른 기기나 세션에서 unlikes가 일어났을 때 sync
+                    if (userLikesMap[noteId] && oldRecord.user_session_id === authorId) {
+                        userLikesMap[noteId] = false;
+                    }
+                    delete likeIdToNoteIdMap[oldRecord.id];
                 }
             }
             renderNotes();
@@ -347,6 +363,7 @@ function subscribeRealtime() {
                 currentBoardSettings = boardSettingsUtils.normalizeBoardSettings(payload.new);
             }
             renderBoardSettings();
+            renderNotes();
         })
         .subscribe();
 }
@@ -450,6 +467,9 @@ function renderNotes() {
                     </div>
                 ` : ''}
 
+                <!-- 제목 영역 (항상 맨 위) -->
+                ${note.title ? `<h4 class="font-bold text-base text-on-surface mb-3 break-words pr-16">${escapeHtml(note.title)}</h4>` : ''}
+
                 <!-- 이미지 노출 -->
                 ${hasImage ? `
                     <div class="w-full rounded-xl overflow-hidden max-h-48 mb-3 bg-slate-100">
@@ -467,39 +487,41 @@ function renderNotes() {
                 <!-- 링크 미리보기 노출 -->
                 ${hasLink ? renderLinkPreviewMarkup(note.link_preview, note.link_url) : ''}
 
-                <!-- 텍스트 영역 -->
+                <!-- 본문 텍스트 영역 -->
                 <div class="flex-1">
-                    ${note.title ? `<h4 class="font-bold text-base text-on-surface mb-1.5 break-words">${escapeHtml(note.title)}</h4>` : ''}
                     <p class="text-sm text-on-surface-variant whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(note.content)}</p>
                 </div>
 
                 <!-- 메타데이터 & 좋아요 리액션 -->
                 <div class="mt-4 flex items-center justify-between border-t border-outline-variant/20 pt-3">
                     <div class="flex items-center gap-1">
-                        <span class="text-[11px] font-bold text-primary bg-primary-container/20 px-2.5 py-0.5 rounded-full">${escapeHtml(note.author)}</span>
                         <span class="text-[10px] text-on-surface-variant">${formatDate(note.created_at)}</span>
                     </div>
                     
-                    <button onclick="toggleLike('${note.id}')" class="flex items-center gap-1 hover:scale-110 active:scale-95 transition-all text-xs font-semibold">
-                        <span class="material-symbols-outlined text-base" style="${heartStyle}">${heartIcon}</span>
-                        <span class="text-on-surface-variant">${likesCount}</span>
-                    </button>
+                    ${currentBoardSettings.likes_enabled !== false ? `
+                        <button onclick="toggleLike('${note.id}')" class="flex items-center gap-1 hover:scale-110 active:scale-95 transition-all text-xs font-semibold">
+                            <span class="material-symbols-outlined text-base" style="${heartStyle}">${heartIcon}</span>
+                            <span class="text-on-surface-variant">${likesCount}</span>
+                        </button>
+                    ` : ''}
                 </div>
 
                 <!-- 댓글 목록 영역 -->
-                <div class="mt-3 bg-surface-container-low/60 rounded-xl p-3 border border-outline-variant/10">
-                    <div class="max-h-28 overflow-y-auto custom-scrollbar mb-2 space-y-1.5">
-                        ${commentsHtml || '<p class="text-[10px] text-outline text-center py-1">첫 댓글을 달아주세요.</p>'}
+                ${currentBoardSettings.comments_enabled !== false ? `
+                    <div class="mt-3 bg-surface-container-low/60 rounded-xl p-3 border border-outline-variant/10">
+                        <div class="max-h-28 overflow-y-auto custom-scrollbar mb-2 space-y-1.5">
+                            ${commentsHtml || '<p class="text-[10px] text-outline text-center py-1">첫 댓글을 달아주세요.</p>'}
+                        </div>
+                        
+                        <!-- 댓글 쓰기 폼 -->
+                        <div class="flex items-center gap-1 border-t border-outline-variant/20 pt-2">
+                            <input id="cmt-input-${note.id}" class="flex-1 bg-white border border-outline-variant/30 rounded-lg px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-primary placeholder:text-[10px]" placeholder="댓글 입력..." type="text" onkeydown="handleCommentSubmit(event, '${note.id}')"/>
+                            <button onclick="submitComment('${note.id}')" class="p-1 text-primary hover:bg-primary/10 rounded-lg" title="댓글 등록">
+                                <span class="material-symbols-outlined text-base">send</span>
+                            </button>
+                        </div>
                     </div>
-                    
-                    <!-- 댓글 쓰기 폼 -->
-                    <div class="flex items-center gap-1 border-t border-outline-variant/20 pt-2">
-                        <input id="cmt-input-${note.id}" class="flex-1 bg-white border border-outline-variant/30 rounded-lg px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-primary placeholder:text-[10px]" placeholder="댓글 입력..." type="text" onkeydown="handleCommentSubmit(event, '${note.id}')"/>
-                        <button onclick="submitComment('${note.id}')" class="p-1 text-primary hover:bg-primary/10 rounded-lg" title="댓글 등록">
-                            <span class="material-symbols-outlined text-base">send</span>
-                        </button>
-                    </div>
-                </div>
+                ` : ''}
 
             </div>
         `;
@@ -559,10 +581,14 @@ function renderBoardSettings() {
     const titleEl = document.getElementById('board-title');
     const inputEl = document.getElementById('board-title-input');
     const toggleAuthWrite = document.getElementById('toggle-auth-write');
+    const toggleShowComments = document.getElementById('toggle-show-comments');
+    const toggleShowLikes = document.getElementById('toggle-show-likes');
 
     if (titleEl) titleEl.textContent = currentBoardSettings.title;
     if (inputEl) inputEl.value = currentBoardSettings.title;
     if (toggleAuthWrite) toggleAuthWrite.checked = currentBoardSettings.write_enabled;
+    if (toggleShowComments) toggleShowComments.checked = currentBoardSettings.comments_enabled !== false;
+    if (toggleShowLikes) toggleShowLikes.checked = currentBoardSettings.likes_enabled !== false;
     renderBoardAccessUI();
 }
 
@@ -628,6 +654,7 @@ async function saveBoardSettings(nextSettings) {
         await boardsApi.renameBoardInServer(supabaseClient, currentBoardId, currentBoardSettings.title);
     }
     renderBoardSettings();
+    renderNotes();
     return currentBoardSettings;
 }
 
@@ -1028,10 +1055,12 @@ async function openEditNoteModal(id) {
     // 배경색 버튼 선택 동기화
     document.querySelectorAll('.bg-select-btn').forEach(btn => {
         if (btn.getAttribute('data-bg') === note.bg_color) {
+            btn.classList.remove('border-transparent');
             btn.classList.add('border-primary');
             btn.innerHTML = `<span class="material-symbols-outlined text-[16px] text-primary">check</span>`;
         } else {
             btn.classList.remove('border-primary');
+            btn.classList.add('border-transparent');
             btn.innerHTML = '';
         }
     });
@@ -1443,10 +1472,12 @@ function resetNoteForm() {
     // 기본 배경색 단추(첫 번째) 체크
     document.querySelectorAll('.bg-select-btn').forEach((btn, index) => {
         if (index === 0) {
+            btn.classList.remove('border-transparent');
             btn.classList.add('border-primary');
             btn.innerHTML = `<span class="material-symbols-outlined text-[16px] text-primary">check</span>`;
         } else {
             btn.classList.remove('border-primary');
+            btn.classList.add('border-transparent');
             btn.innerHTML = '';
         }
     });
@@ -1701,6 +1732,44 @@ function bindGeneralEvents() {
         });
     }
 
+    const toggleShowComments = document.getElementById('toggle-show-comments');
+    if (toggleShowComments) {
+        toggleShowComments.checked = currentBoardSettings.comments_enabled !== false;
+        toggleShowComments.addEventListener('change', async (e) => {
+            const nextValue = e.target.checked;
+            if (!canCurrentUserManageBoard()) {
+                e.target.checked = currentBoardSettings.comments_enabled !== false;
+                alert('교사 계정만 보드 설정을 변경할 수 있습니다.');
+                return;
+            }
+            try {
+                await saveBoardSettings({ comments_enabled: nextValue });
+            } catch (err) {
+                console.error("Save comments_enabled setting failed:", err);
+                e.target.checked = currentBoardSettings.comments_enabled !== false;
+            }
+        });
+    }
+
+    const toggleShowLikes = document.getElementById('toggle-show-likes');
+    if (toggleShowLikes) {
+        toggleShowLikes.checked = currentBoardSettings.likes_enabled !== false;
+        toggleShowLikes.addEventListener('change', async (e) => {
+            const nextValue = e.target.checked;
+            if (!canCurrentUserManageBoard()) {
+                e.target.checked = currentBoardSettings.likes_enabled !== false;
+                alert('교사 계정만 보드 설정을 변경할 수 있습니다.');
+                return;
+            }
+            try {
+                await saveBoardSettings({ likes_enabled: nextValue });
+            } catch (err) {
+                console.error("Save likes_enabled setting failed:", err);
+                e.target.checked = currentBoardSettings.likes_enabled !== false;
+            }
+        });
+    }
+
     // Supabase Auth 연동 UI 갱신 헬퍼
     function getCurrentRoleLabel() {
         if (!currentProfile) return '\uad50\uc0ac \uc2b9\uc778 \ub300\uae30';
@@ -1842,9 +1911,11 @@ function bindGeneralEvents() {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.bg-select-btn').forEach(b => {
                 b.classList.remove('border-primary');
+                b.classList.add('border-transparent');
                 b.innerHTML = '';
             });
             const targetBtn = e.currentTarget;
+            targetBtn.classList.remove('border-transparent');
             targetBtn.classList.add('border-primary');
             targetBtn.innerHTML = `<span class="material-symbols-outlined text-[16px] text-primary">check</span>`;
         });

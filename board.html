@@ -280,40 +280,54 @@
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm modal-close-trigger"></div>
         <!-- Modal Content -->
-        <div class="relative w-full max-w-md bg-surface-container-lowest rounded-lg shadow-2xl overflow-hidden border border-outline-variant/20 flex flex-col animate-modal max-h-[88vh]">
-            <button type="button" class="absolute right-3 top-3 z-10 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant modal-close-btn" title="닫기">
-                <span class="material-symbols-outlined">close</span>
-            </button>
+        <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden border border-outline-variant/15 flex flex-col animate-modal max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="px-5 py-4 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-lowest">
+                <h3 class="text-base font-bold text-on-surface flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">edit_note</span>
+                    <span id="modal-title">새 생각 기록하기</span>
+                </h3>
+                <button type="button" class="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface-container-low hover:text-primary transition-all text-on-surface-variant modal-close-btn" title="닫기">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
             
             <!-- Body -->
-            <form id="note-form" class="flex-1 overflow-y-auto p-4 pt-5 space-y-3 custom-scrollbar">
+            <form id="note-form" class="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
                 <input type="hidden" id="edit-note-id" value="">
                 <input id="note-author" type="hidden" value="익명"/>
                 
-                <input id="note-title" class="w-full pr-10 px-3 py-2 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest outline-none text-sm font-bold transition-all" placeholder="제목" type="text" required/>
-
-                <textarea id="note-content" class="w-full px-3 py-2.5 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest outline-none text-sm transition-all resize-none" placeholder="내용 입력" rows="3"></textarea>
+                <!-- Inputs Group -->
+                <div class="space-y-3">
+                    <div class="relative">
+                        <input id="note-title" class="w-full px-4 py-3 bg-surface-container-low/40 border border-outline-variant/15 rounded-xl outline-none text-base font-bold transition-all placeholder:text-on-surface-variant/40 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10" placeholder="제목을 입력하세요" type="text" required/>
+                    </div>
+                    <div class="relative">
+                        <textarea id="note-content" class="w-full px-4 py-3 bg-surface-container-low/40 border border-outline-variant/15 rounded-xl outline-none text-sm transition-all resize-none placeholder:text-on-surface-variant/40 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10" placeholder="생각을 여기에 자세히 적어보세요..." rows="4"></textarea>
+                    </div>
+                </div>
 
                 <!-- 포스트 첨부 도구 툴바 -->
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between border border-outline-variant/30 rounded-lg px-3 py-2 bg-surface-container-low/20">
-                        <span class="text-xs font-semibold text-on-surface-variant">자료 추가</span>
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" id="tool-btn-image" class="px-2.5 py-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/20 rounded-lg transition-all flex items-center justify-center gap-1 text-xs font-semibold" title="이미지 첨부">
+                <div class="space-y-2">
+                    <div class="flex flex-col gap-2 p-3 bg-surface-container-low/30 rounded-2xl border border-outline-variant/10">
+                        <span class="text-xs font-bold text-on-surface-variant/80 px-1">자료 추가</span>
+                        <div class="flex items-center gap-1 bg-white/60 p-1 rounded-xl shadow-inner-sm">
+                            <button type="button" id="tool-btn-image" class="flex-1 py-2 text-on-surface-variant hover:text-primary hover:bg-white rounded-lg hover:shadow-sm transition-all flex items-center justify-center gap-1.5 text-xs font-semibold" title="이미지 첨부">
                                 <span class="material-symbols-outlined text-lg">image</span>
-                                이미지
+                                <span>이미지</span>
                             </button>
-                            <button type="button" id="tool-btn-link" class="px-2.5 py-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/20 rounded-lg transition-all flex items-center justify-center gap-1 text-xs font-semibold" title="링크 추가">
+                            <button type="button" id="tool-btn-link" class="flex-1 py-2 text-on-surface-variant hover:text-primary hover:bg-white rounded-lg hover:shadow-sm transition-all flex items-center justify-center gap-1.5 text-xs font-semibold" title="링크 추가">
                                 <span class="material-symbols-outlined text-lg">link</span>
-                                링크
+                                <span>링크</span>
                             </button>
-                            <button type="button" id="tool-btn-youtube" class="px-2.5 py-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/20 rounded-lg transition-all flex items-center justify-center gap-1 text-xs font-semibold" title="유튜브 링크">
+                            <button type="button" id="tool-btn-youtube" class="flex-1 py-2 text-on-surface-variant hover:text-primary hover:bg-white rounded-lg hover:shadow-sm transition-all flex items-center justify-center gap-1.5 text-xs font-semibold" title="유튜브 링크">
                                 <span class="material-symbols-outlined text-lg">smart_display</span>
-                                유튜브
+                                <span>유튜브</span>
                             </button>
-                            <button type="button" id="tool-btn-draw" class="px-2.5 py-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/20 rounded-lg transition-all flex items-center justify-center gap-1 text-xs font-semibold" title="손그림 스케치">
+                            <button type="button" id="tool-btn-draw" class="flex-1 py-2 text-on-surface-variant hover:text-primary hover:bg-white rounded-lg hover:shadow-sm transition-all flex items-center justify-center gap-1.5 text-xs font-semibold" title="손그림 스케치">
                                 <span class="material-symbols-outlined text-lg">draw</span>
-                                그림
+                                <span>그림</span>
                             </button>
                         </div>
                     </div>
@@ -373,19 +387,21 @@
                 </div>
 
                 <!-- 하단 옵션 -->
-                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/10 pt-3">
-                    <div class="flex items-center gap-2">
-                        <span class="text-[11px] font-semibold text-on-surface-variant">배경</span>
-                        <button type="button" data-bg="bg-surface-container-lowest" class="w-6 h-6 rounded-full border-2 border-primary bg-white flex items-center justify-center relative shadow-sm hover:scale-105 transition-all bg-select-btn">
-                            <span class="material-symbols-outlined text-[13px] text-primary">check</span>
-                        </button>
-                        <button type="button" data-bg="bg-amber-100/80" class="w-6 h-6 rounded-full border-2 border-transparent bg-amber-100 hover:scale-105 transition-all bg-select-btn"></button>
-                        <button type="button" data-bg="bg-emerald-100/80" class="w-6 h-6 rounded-full border-2 border-transparent bg-emerald-100 hover:scale-105 transition-all bg-select-btn"></button>
-                        <button type="button" data-bg="bg-sky-100/80" class="w-6 h-6 rounded-full border-2 border-transparent bg-sky-100 hover:scale-105 transition-all bg-select-btn"></button>
-                        <button type="button" data-bg="bg-fuchsia-100/80" class="w-6 h-6 rounded-full border-2 border-transparent bg-fuchsia-100 hover:scale-105 transition-all bg-select-btn"></button>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/10 pt-4">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-on-surface-variant/80">배경</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" data-bg="bg-surface-container-lowest" class="w-8 h-8 rounded-full border-2 border-primary bg-white flex items-center justify-center relative shadow-sm hover:scale-110 transition-all bg-select-btn">
+                                <span class="material-symbols-outlined text-base text-primary">check</span>
+                            </button>
+                            <button type="button" data-bg="bg-amber-100/80" class="w-8 h-8 rounded-full border-2 border-transparent bg-amber-100 shadow-sm hover:scale-110 transition-all bg-select-btn"></button>
+                            <button type="button" data-bg="bg-emerald-100/80" class="w-8 h-8 rounded-full border-2 border-transparent bg-emerald-100 shadow-sm hover:scale-110 transition-all bg-select-btn"></button>
+                            <button type="button" data-bg="bg-sky-100/80" class="w-8 h-8 rounded-full border-2 border-transparent bg-sky-100 shadow-sm hover:scale-110 transition-all bg-select-btn"></button>
+                            <button type="button" data-bg="bg-fuchsia-100/80" class="w-8 h-8 rounded-full border-2 border-transparent bg-fuchsia-100 shadow-sm hover:scale-110 transition-all bg-select-btn"></button>
+                        </div>
                     </div>
                     <div id="modal-section-wrapper" class="hidden min-w-0 flex-1">
-                        <div id="modal-section-select-container" class="flex flex-wrap justify-end gap-2">
+                        <div id="modal-section-select-container" class="flex flex-wrap justify-end gap-1.5">
                             <!-- 동적으로 등록된 섹션 리스트 버튼들이 이곳에 렌더링됩니다 -->
                         </div>
                     </div>
@@ -393,11 +409,11 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="flex gap-2">
-                    <button type="button" class="flex-1 px-4 py-2.5 rounded-lg text-on-surface-variant font-semibold hover:bg-surface-container-high transition-colors active:scale-95 text-sm modal-close-btn">취소</button>
-                    <button type="submit" id="submit-note-btn" disabled class="flex-[2] bg-primary text-on-primary px-4 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary/95 transition-all active:scale-95 text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:active:scale-100">
+                <div class="flex gap-3 pt-2">
+                    <button type="button" class="flex-1 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-on-surface-variant font-bold transition-all active:scale-95 text-sm modal-close-btn">취소</button>
+                    <button type="submit" id="submit-note-btn" disabled class="flex-[2] bg-gradient-to-r from-primary to-[#7c3aed] text-on-primary px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0 transition-all active:scale-95 text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:active:scale-100 disabled:shadow-none disabled:transform-none">
                         <span id="submit-btn-text">생각 올리기</span>
-                        <span class="material-symbols-outlined text-sm">rocket_launch</span>
+                        <span class="material-symbols-outlined text-base">rocket_launch</span>
                     </button>
                 </div>
             </form>
@@ -543,6 +559,28 @@
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer select-none">
                         <input id="toggle-auth-write" class="sr-only peer" type="checkbox"/>
+                        <div class="w-9 h-5 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                </div>
+
+                <!-- 댓글 표시 토글 -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-semibold text-xs text-on-surface">댓글 표시</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer select-none">
+                        <input id="toggle-show-comments" class="sr-only peer" type="checkbox"/>
+                        <div class="w-9 h-5 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                </div>
+
+                <!-- 좋아요 표시 토글 -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-semibold text-xs text-on-surface">좋아요 표시</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer select-none">
+                        <input id="toggle-show-likes" class="sr-only peer" type="checkbox"/>
                         <div class="w-9 h-5 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
                     </label>
                 </div>

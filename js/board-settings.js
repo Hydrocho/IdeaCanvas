@@ -55,6 +55,8 @@
                 : normalized.id,
             title: normalized.title,
             write_enabled: normalized.write_enabled,
+            comments_enabled: normalized.comments_enabled,
+            likes_enabled: normalized.likes_enabled,
             updated_at: now(),
         };
         if (boardId) payload.board_id = boardId;
@@ -63,6 +65,8 @@
             const updatePayload = {
                 title: payload.title,
                 write_enabled: payload.write_enabled,
+                comments_enabled: payload.comments_enabled,
+                likes_enabled: payload.likes_enabled,
                 updated_at: payload.updated_at,
             };
             const { data: updatedData, error: updateError } = await client
