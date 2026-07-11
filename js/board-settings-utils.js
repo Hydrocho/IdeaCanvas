@@ -11,6 +11,7 @@
         write_enabled: true,
         comments_enabled: true,
         likes_enabled: true,
+        bg_color: 'default',
     };
 
     function resolveWriteEnabled(settings) {
@@ -37,6 +38,13 @@
         return DEFAULT_BOARD_SETTINGS.likes_enabled;
     }
 
+    function resolveBgColor(settings) {
+        if (typeof settings.bg_color === 'string' && settings.bg_color.trim()) {
+            return settings.bg_color.trim();
+        }
+        return DEFAULT_BOARD_SETTINGS.bg_color;
+    }
+
     function normalizeBoardSettings(settings) {
         if (!settings || typeof settings !== 'object') {
             return { ...DEFAULT_BOARD_SETTINGS };
@@ -53,6 +61,7 @@
             write_enabled: resolveWriteEnabled(settings),
             comments_enabled: resolveCommentsEnabled(settings),
             likes_enabled: resolveLikesEnabled(settings),
+            bg_color: resolveBgColor(settings),
         };
     }
 

@@ -385,11 +385,8 @@ function renderNotes() {
         if (document.getElementById('notes-grid')) document.getElementById('notes-grid').classList.remove('hidden');
         if (document.getElementById('kanban-board')) document.getElementById('kanban-board').classList.add('hidden');
         
-        // 기존 동적 메모 카드 제거 (새로 만들기 버튼만 남김)
-        const items = elements.notesGrid.querySelectorAll('.masonry-item');
-        items.forEach((item, index) => {
-            if (index > 0) item.remove(); // 첫 번째 요소(새 노트 버튼)는 남김
-        });
+        // 기존 동적 메모 카드 제거
+        if (elements.notesGrid) elements.notesGrid.innerHTML = '';
     }
 
     const searchQuery = elements.searchInput.value.toLowerCase().trim();
@@ -473,14 +470,14 @@ function renderNotes() {
                 <!-- 이미지 노출 -->
                 ${hasImage ? `
                     <div class="w-full rounded-xl overflow-hidden max-h-48 mb-3 bg-slate-100">
-                        <img src="${note.image_url}" class="w-full h-full object-cover"/>
+                        <img src="${note.image_url}" class="clickable-note-img w-full h-full object-cover"/>
                     </div>
                 ` : ''}
 
                 <!-- 손그림 노출 -->
                 ${hasSketch ? `
                     <div class="w-full rounded-xl overflow-hidden max-h-48 mb-3 bg-white border border-outline-variant/20 p-2">
-                        <img src="${note.drawing_data}" class="w-full h-full object-contain mx-auto"/>
+                        <img src="${note.drawing_data}" class="clickable-note-img w-full h-full object-contain mx-auto"/>
                     </div>
                 ` : ''}
 
@@ -589,6 +586,32 @@ function renderBoardSettings() {
     if (toggleAuthWrite) toggleAuthWrite.checked = currentBoardSettings.write_enabled;
     if (toggleShowComments) toggleShowComments.checked = currentBoardSettings.comments_enabled !== false;
     if (toggleShowLikes) toggleShowLikes.checked = currentBoardSettings.likes_enabled !== false;
+
+    // 보드 배경색 스타일 적용
+    const mainCanvas = document.getElementById('main-canvas');
+    if (mainCanvas) {
+        // bg-preset-* 관련 클래스 모두 제거
+        mainCanvas.className = mainCanvas.className.split(' ').filter(c => !c.startsWith('bg-preset-')).join(' ');
+        const bgColor = currentBoardSettings.bg_color || 'default';
+        mainCanvas.classList.add(`bg-preset-${bgColor}`);
+    }
+
+    // 설정 드로어 내 보드 배경색 버튼 선택 상태 피드백
+    document.querySelectorAll('.board-bg-btn').forEach(btn => {
+        const bgVal = btn.getAttribute('data-bg');
+        if (bgVal === (currentBoardSettings.bg_color || 'default')) {
+            btn.classList.add('border-primary', 'scale-110');
+            btn.classList.remove('border-outline-variant');
+            if (!btn.querySelector('span')) {
+                btn.innerHTML = `<span class="material-symbols-outlined text-[10px] text-primary font-bold">check</span>`;
+            }
+        } else {
+            btn.classList.remove('border-primary', 'scale-110');
+            btn.classList.add('border-outline-variant');
+            btn.innerHTML = '';
+        }
+    });
+
     renderBoardAccessUI();
 }
 
@@ -606,10 +629,18 @@ function renderBoardAccessUI() {
     const homeLink = document.getElementById('board-home-link');
     const controls = document.getElementById('board-settings-controls');
     const locked = document.getElementById('board-settings-locked');
+    const settingsBtn = document.getElementById('open-settings-panel-btn');
 
     if (homeLink) homeLink.classList.toggle('hidden', !canManage);
     if (controls) controls.classList.toggle('hidden', !canManage);
     if (locked) locked.classList.toggle('hidden', canManage);
+    if (settingsBtn) settingsBtn.classList.toggle('hidden', !canManage);
+
+    // 글쓰기 권한에 따른 FAB(글쓰기 버튼) 표시 여부 제어
+    const canWrite = canCurrentUserWrite();
+    if (elements.fabNewNoteBtn) {
+        elements.fabNewNoteBtn.classList.toggle('hidden', !canWrite);
+    }
 }
 
 async function loadBoardSettings() {
@@ -678,7 +709,7 @@ function renderSectionsUI() {
 
     currentSections.forEach((s, idx) => {
         const colWrapper = document.createElement('div');
-        colWrapper.className = 'flex-1 min-w-[280px] w-full bg-surface-container-low/30 border border-outline-variant/20 rounded-2xl p-4 flex flex-col space-y-4 max-h-[75vh] shrink-0';
+        colWrapper.className = 'w-[280px] md:w-[320px] bg-surface-container-low/30 border border-outline-variant/20 rounded-2xl p-4 flex flex-col space-y-4 shrink-0';
         colWrapper.id = `sect-container-${s.id}`;
 
         colWrapper.innerHTML = `
@@ -693,13 +724,16 @@ function renderSectionsUI() {
                     <input id="sect-input-${s.id}" type="text" value="${escapeHtml(s.name)}" class="hidden px-2 py-0.5 border border-primary rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary w-full"/>
                 </div>
                 <div class="flex items-center gap-1 shrink-0 ml-2">
-                    <span id="count-${s.id}" class="text-xs font-semibold text-on-surface-variant">0</span>
+                    <span id="count-${s.id}" class="text-xs font-semibold text-on-surface-variant mr-1">0</span>
+                    <button onclick="openNoteModalForSection(this)" class="w-6 h-6 rounded-full hover:bg-primary/10 text-primary flex items-center justify-center transition-all" title="이 섹션에 메모 추가">
+                        <span class="material-symbols-outlined text-base">add_circle</span>
+                    </button>
                     <button onclick="deleteSection('${s.id}')" class="w-6 h-6 rounded-full hover:bg-error-container/20 text-on-surface-variant hover:text-error flex items-center justify-center opacity-0 group-hover/header:opacity-100 transition-opacity" title="섹션 삭제">
                         <span class="material-symbols-outlined text-sm">delete</span>
                     </button>
                 </div>
             </div>
-            <div id="col-${s.id}" class="space-y-4 flex-1 overflow-y-auto min-h-[200px] custom-scrollbar pb-4"></div>
+            <div id="col-${s.id}" class="space-y-4 flex-1 min-h-[200px] pb-2"></div>
         `;
 
         kanbanBoard.appendChild(colWrapper);
@@ -749,7 +783,7 @@ function renderSectionsUI() {
     // 2. "+ 섹션 추가" 단추 카드 생성하여 맨 오른쪽에 붙임
     const addColBtn = document.createElement('button');
     addColBtn.id = 'add-kanban-section-btn';
-    addColBtn.className = 'min-w-[280px] h-32 border-2 border-dashed border-outline-variant/40 hover:border-primary/50 bg-surface-container-low/20 rounded-2xl flex flex-col items-center justify-center gap-2 text-on-surface-variant hover:text-primary transition-all shrink-0';
+    addColBtn.className = 'w-[280px] md:w-[320px] h-32 border-2 border-dashed border-outline-variant/40 hover:border-primary/50 bg-surface-container-low/20 rounded-2xl flex flex-col items-center justify-center gap-2 text-on-surface-variant hover:text-primary transition-all shrink-0';
     addColBtn.innerHTML = `
         <span class="material-symbols-outlined text-2xl">add_circle</span>
         <span class="font-bold text-xs">섹션 추가</span>
@@ -899,8 +933,12 @@ function renderLinkPreviewMarkup(preview, originalUrl) {
         return `
             <div class="w-full rounded-xl overflow-hidden mb-3 border border-outline-variant/30 shadow-sm relative group/yt bg-black">
                 <img src="${preview.image}" class="w-full h-full object-cover opacity-80 group-hover/yt:opacity-60 transition-opacity max-h-40"/>
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <a href="${originalUrl}" target="_blank" class="w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110">
+                <div class="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+                    <span class="bg-black/60 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 select-none backdrop-blur-sm">
+                        <span class="material-symbols-outlined text-[10px]">link</span>
+                        <span>유튜브 동영상 링크</span>
+                    </span>
+                    <a href="${originalUrl}" target="_blank" class="w-14 h-9 bg-red-600 hover:bg-red-700 text-white rounded-xl flex items-center justify-center shadow-lg transition-transform hover:scale-110" title="동영상 보기">
                         <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
                     </a>
                 </div>
@@ -918,7 +956,11 @@ function renderLinkPreviewMarkup(preview, originalUrl) {
             <div class="min-w-0 flex-1 flex flex-col justify-center">
                 <h5 class="font-bold text-xs truncate text-on-surface">${escapeHtml(preview.title || '웹 사이트')}</h5>
                 <p class="text-[10px] text-on-surface-variant truncate mt-0.5">${escapeHtml(preview.description || originalUrl)}</p>
-                <span class="text-[9px] text-primary font-medium mt-1 truncate flex items-center gap-0.5">
+                <div class="text-[8px] md:text-[9px] text-outline font-bold mt-1.5 flex items-center gap-0.5 text-on-surface-variant/70">
+                    <span class="material-symbols-outlined text-[10px]">open_in_new</span>
+                    <span>외부 연결 링크</span>
+                </div>
+                <span class="text-[9px] text-primary font-medium mt-0.5 truncate flex items-center gap-0.5">
                     <span class="material-symbols-outlined text-[10px]">link</span>
                     웹사이트 이동
                 </span>
@@ -1024,6 +1066,44 @@ async function deleteNote(id) {
     } catch (e) {
         alert("삭제 실패: " + e.message);
     }
+}
+
+// 특정 섹션에 즉시 메모 추가 모달 열기
+function openNoteModalForSection(btnElement) {
+    if (!canCurrentUserWrite()) {
+        const writeDisabledModal = document.getElementById('write-disabled-modal');
+        if (writeDisabledModal) writeDisabledModal.classList.remove('hidden');
+        return;
+    }
+    
+    const container = btnElement.closest('[id^=sect-container-]');
+    if (!container) return;
+    const sectId = container.id.replace('sect-container-', '');
+    const titleEl = document.getElementById(`sect-title-${sectId}`);
+    if (!titleEl) return;
+    const nameSpan = titleEl.querySelector('.sect-name-text');
+    const sectionName = nameSpan ? nameSpan.textContent.trim() : '';
+
+    resetNoteForm();
+    
+    // 섹션 선택값 강제 지정
+    const noteSectInput = document.getElementById('note-section');
+    if (noteSectInput) {
+        noteSectInput.value = sectionName;
+    }
+    
+    // 모달 내부 버튼 기동 처리 등 동기화
+    document.querySelectorAll('.section-select-btn').forEach(btn => {
+        if (btn.getAttribute('data-section') === sectionName) {
+            btn.classList.add('bg-primary/10', 'text-primary', 'border-primary/20');
+            btn.classList.remove('bg-slate-100', 'text-on-surface-variant', 'border-transparent');
+        } else {
+            btn.classList.remove('bg-primary/10', 'text-primary', 'border-primary/20');
+            btn.classList.add('bg-slate-100', 'text-on-surface-variant', 'border-transparent');
+        }
+    });
+
+    if (elements.noteModal) elements.noteModal.classList.remove('hidden');
 }
 
 // 메모 수정 모달 열기
@@ -1654,6 +1734,27 @@ function bindGeneralEvents() {
     const settingsPanelOverlay = document.getElementById('settings-panel-overlay');
     const writeDisabledModal = document.getElementById('write-disabled-modal');
     
+    // 교사 계정 관리 드롭다운 메뉴 이벤트 바인딩
+    const authMenuBtn = document.getElementById('auth-menu-btn');
+    const authDropdownMenu = document.getElementById('auth-dropdown-menu');
+    
+    if (authMenuBtn && authDropdownMenu) {
+        authMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // document click 이벤트 전파 방지
+            authDropdownMenu.classList.toggle('hidden');
+        });
+        
+        // 메뉴 내부 클릭 시 닫히지 않도록 방지
+        authDropdownMenu.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        // 외부 영역 클릭 시 메뉴 닫기
+        document.addEventListener('click', () => {
+            authDropdownMenu.classList.add('hidden');
+        });
+    }
+
     const openSettingsPanel = () => {
         if (settingsPanel) settingsPanel.classList.remove('translate-x-full');
         if (settingsPanelOverlay) settingsPanelOverlay.classList.remove('hidden');
@@ -1670,6 +1771,19 @@ function bindGeneralEvents() {
     if (openSettingsPanelBtn) openSettingsPanelBtn.addEventListener('click', openSettingsPanel);
     if (closeSettingsPanelBtn) closeSettingsPanelBtn.addEventListener('click', closeSettingsPanel);
     if (settingsPanelOverlay) settingsPanelOverlay.addEventListener('click', closeSettingsPanel);
+
+    // 보드 공유 (QR코드 페이지) 새 창 열기
+    const openShareModalBtn = document.getElementById('open-share-modal-btn');
+    if (openShareModalBtn) {
+        openShareModalBtn.addEventListener('click', () => {
+            const currentUrl = window.location.href;
+            const boardTitle = currentBoardSettings.title || '아이디어 협업 보드';
+            const sharePageUrl = `qr.html?url=${encodeURIComponent(currentUrl)}&title=${encodeURIComponent(boardTitle)}`;
+            
+            // 새 창(또는 새 탭)으로 크게 열기
+            window.open(sharePageUrl, '_blank', 'width=800,height=800,scrollbars=yes');
+        });
+    }
 
     const openWriteDisabledModal = () => {
         if (writeDisabledModal) writeDisabledModal.classList.remove('hidden');
@@ -1770,6 +1884,104 @@ function bindGeneralEvents() {
         });
     }
 
+    // 보드 배경색 버튼 클릭 이벤트 바인딩
+    document.querySelectorAll('.board-bg-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const nextBg = btn.getAttribute('data-bg');
+            if (!canCurrentUserManageBoard()) {
+                alert('교사 계정만 보드 설정을 변경할 수 있습니다.');
+                return;
+            }
+            try {
+                await saveBoardSettings({ bg_color: nextBg });
+            } catch (err) {
+                console.error("Save bg_color setting failed:", err);
+            }
+        });
+    });
+
+    // 이미지 확대 모달(Lightbox) 오픈 함수
+    function openImageLightbox(src, title) {
+        const modal = document.getElementById('image-lightbox-modal');
+        const img = document.getElementById('lightbox-img');
+        const caption = document.getElementById('lightbox-caption');
+        const downloadBtn = document.getElementById('download-lightbox-btn');
+        
+        if (!modal || !img) return;
+        
+        img.src = src;
+        
+        if (title) {
+            caption.textContent = title;
+            caption.classList.remove('hidden');
+        } else {
+            caption.textContent = '';
+            caption.classList.add('hidden');
+        }
+        
+        if (downloadBtn) {
+            downloadBtn.onclick = () => {
+                const link = document.createElement('a');
+                link.href = src;
+                if (src.startsWith('data:image')) {
+                    const ext = src.split(';')[0].split('/')[1] || 'png';
+                    link.download = `ideacanvas_image_${Date.now()}.${ext}`;
+                } else {
+                    const filename = src.substring(src.lastIndexOf('/') + 1) || 'download';
+                    link.download = filename;
+                }
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+        }
+        
+        modal.classList.remove('hidden');
+    }
+
+    // Lightbox 모달 닫기 이벤트 바인딩
+    const lightboxModal = document.getElementById('image-lightbox-modal');
+    const closeLightboxBtn = document.getElementById('close-lightbox-btn');
+    
+    function closeLightbox() {
+        if (lightboxModal) {
+            lightboxModal.classList.add('hidden');
+            const img = document.getElementById('lightbox-img');
+            if (img) img.src = '';
+        }
+    }
+    
+    if (closeLightboxBtn) {
+        closeLightboxBtn.addEventListener('click', closeLightbox);
+    }
+    if (lightboxModal) {
+        lightboxModal.addEventListener('click', (e) => {
+            if (e.target === lightboxModal) {
+                closeLightbox();
+            }
+        });
+    }
+    
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && lightboxModal && !lightboxModal.classList.contains('hidden')) {
+            closeLightbox();
+        }
+    });
+    
+    // 메모 내부 이미지 클릭 이벤트 위임
+    if (elements.notesGrid) {
+        elements.notesGrid.addEventListener('click', (e) => {
+            const clickedImg = e.target.closest('.clickable-note-img');
+            if (clickedImg) {
+                const src = clickedImg.getAttribute('src');
+                const card = clickedImg.closest('.group\\/card');
+                const titleEl = card ? card.querySelector('h4') : null;
+                const title = titleEl ? titleEl.textContent.trim() : '';
+                openImageLightbox(src, title);
+            }
+        });
+    }
+
     // Supabase Auth 연동 UI 갱신 헬퍼
     function getCurrentRoleLabel() {
         if (!currentProfile) return '\uad50\uc0ac \uc2b9\uc778 \ub300\uae30';
@@ -1832,7 +2044,10 @@ function bindGeneralEvents() {
                 const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) throw error;
                 await refreshAuthState(data.user);
-                closeSettingsPanel();
+                const authDropdownMenu = document.getElementById('auth-dropdown-menu');
+                if (authDropdownMenu) {
+                    authDropdownMenu.classList.add('hidden');
+                }
             } catch (err) {
                 alert('\ub85c\uadf8\uc778 \uc2e4\ud328: ' + err.message);
             } finally {

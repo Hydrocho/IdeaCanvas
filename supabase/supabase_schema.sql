@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS public.board_settings (
     write_enabled BOOLEAN NOT NULL DEFAULT true,
     comments_enabled BOOLEAN NOT NULL DEFAULT true,
     likes_enabled BOOLEAN NOT NULL DEFAULT true,
+    bg_color TEXT NOT NULL DEFAULT 'default',
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -88,6 +89,8 @@ ALTER TABLE public.board_settings ADD COLUMN IF NOT EXISTS comments_enabled BOOL
 ALTER TABLE public.board_settings ALTER COLUMN comments_enabled SET DEFAULT true;
 ALTER TABLE public.board_settings ADD COLUMN IF NOT EXISTS likes_enabled BOOLEAN;
 ALTER TABLE public.board_settings ALTER COLUMN likes_enabled SET DEFAULT true;
+ALTER TABLE public.board_settings ADD COLUMN IF NOT EXISTS bg_color TEXT;
+ALTER TABLE public.board_settings ALTER COLUMN bg_color SET DEFAULT 'default';
 DELETE FROM public.likes
 WHERE id IN (
     SELECT id
