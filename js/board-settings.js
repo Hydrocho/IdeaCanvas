@@ -79,34 +79,69 @@
                 settings_json: payload.settings_json,
                 updated_at: payload.updated_at,
             };
-            const { data: updatedData, error: updateError } = await client
+            
+            let result = await client
                 .from('board_settings')
                 .update(updatePayload)
                 .eq('board_id', boardId)
                 .select()
                 .maybeSingle();
 
-            if (updateError) throw updateError;
-            if (updatedData) return fallbackUtils.normalizeBoardSettings(updatedData);
+            if (result.error && result.error.code === '42703') {
+                console.warn("settings_json column does not exist on server. Retrying update with legacy columns.");
+                const legacyUpdatePayload = { ...updatePayload };
+                delete legacyUpdatePayload.settings_json;
+                result = await client
+                    .from('board_settings')
+                    .update(legacyUpdatePayload)
+                    .eq('board_id', boardId)
+                    .select()
+                    .maybeSingle();
+            }
 
-            const { data: insertedData, error: insertError } = await client
+            if (result.error) throw result.error;
+            if (result.data) return fallbackUtils.normalizeBoardSettings(result.data);
+
+            let insertResult = await client
                 .from('board_settings')
                 .insert(payload)
                 .select()
                 .single();
 
-            if (insertError) throw insertError;
-            return fallbackUtils.normalizeBoardSettings(insertedData);
+            if (insertResult.error && insertResult.error.code === '42703') {
+                console.warn("settings_json column does not exist on server. Retrying insert with legacy columns.");
+                const legacyPayload = { ...payload };
+                delete legacyPayload.settings_json;
+                insertResult = await client
+                    .from('board_settings')
+                    .insert(legacyPayload)
+                    .select()
+                    .single();
+            }
+
+            if (insertResult.error) throw insertResult.error;
+            return fallbackUtils.normalizeBoardSettings(insertResult.data);
         }
 
-        const { data, error } = await client
+        let upsertResult = await client
             .from('board_settings')
             .upsert(payload)
             .select()
             .single();
 
-        if (error) throw error;
-        return fallbackUtils.normalizeBoardSettings(data);
+        if (upsertResult.error && upsertResult.error.code === '42703') {
+            console.warn("settings_json column does not exist on server. Retrying upsert with legacy columns.");
+            const legacyPayload = { ...payload };
+            delete legacyPayload.settings_json;
+            upsertResult = await client
+                .from('board_settings')
+                .upsert(legacyPayload)
+                .select()
+                .single();
+        }
+
+        if (upsertResult.error) throw upsertResult.error;
+        return fallbackUtils.normalizeBoardSettings(upsertResult.data);
     }
 
     return {

@@ -1831,6 +1831,7 @@ function bindGeneralEvents() {
                 e.target.checked = isSectionViewEnabled;
                 return;
             }
+            const previousValue = isSectionViewEnabled;
             try {
                 isSectionViewEnabled = nextValue;
                 await saveBoardSettings({ sections_enabled: nextValue });
@@ -1839,7 +1840,8 @@ function bindGeneralEvents() {
                 updateModalSectionVisibility();
             } catch (err) {
                 console.error("Save sections_enabled setting failed:", err);
-                e.target.checked = isSectionViewEnabled;
+                isSectionViewEnabled = previousValue;
+                e.target.checked = previousValue;
             }
         });
     }
