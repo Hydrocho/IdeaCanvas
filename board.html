@@ -237,7 +237,7 @@
         </aside>
 
         <!-- Main Content Area -->
-        <main id="main-canvas" class="flex-1 min-h-screen canvas-bg flex flex-col overflow-y-auto custom-scrollbar relative">
+        <main id="main-canvas" class="flex-1 min-h-screen canvas-bg flex flex-col overflow-y-auto overflow-x-hidden custom-scrollbar relative">
             <!-- Top Bar -->
             <header class="w-full sticky top-0 z-40 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/20 h-[50px] flex items-center justify-between px-container-padding-mobile md:px-container-padding-desktop">
                 <div class="flex items-center gap-4">
@@ -306,7 +306,7 @@
             </header>
 
             <!-- Dashboard Content -->
-            <div class="flex-1 p-container-padding-mobile md:p-container-padding-desktop pb-24">
+            <div class="flex-1 p-container-padding-mobile md:p-container-padding-desktop pb-24 w-full max-w-full overflow-x-hidden min-w-0">
                 
 
 
@@ -321,7 +321,7 @@
                 </section>
 
                 <!-- 칸반 컬럼 보드 (기본 숨김) -->
-                <section id="kanban-board" class="hidden flex flex-row gap-6 items-start overflow-x-auto pb-6 custom-scrollbar w-full">
+                <section id="kanban-board" class="hidden flex flex-row gap-6 items-start overflow-x-auto pb-6 custom-scrollbar w-full min-w-0">
                     <!-- 동적으로 생성된 섹션 컬럼들과 "섹션 추가" 카드가 렌더링됩니다 -->
                 </section>
             </div>

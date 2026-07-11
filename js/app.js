@@ -580,12 +580,16 @@ function renderBoardSettings() {
     const toggleAuthWrite = document.getElementById('toggle-auth-write');
     const toggleShowComments = document.getElementById('toggle-show-comments');
     const toggleShowLikes = document.getElementById('toggle-show-likes');
+    const toggleSectionView = document.getElementById('toggle-section-view');
 
     if (titleEl) titleEl.textContent = currentBoardSettings.title;
     if (inputEl) inputEl.value = currentBoardSettings.title;
     if (toggleAuthWrite) toggleAuthWrite.checked = currentBoardSettings.write_enabled;
     if (toggleShowComments) toggleShowComments.checked = currentBoardSettings.comments_enabled !== false;
     if (toggleShowLikes) toggleShowLikes.checked = currentBoardSettings.likes_enabled !== false;
+    
+    isSectionViewEnabled = currentBoardSettings.sections_enabled === true;
+    if (toggleSectionView) toggleSectionView.checked = isSectionViewEnabled;
 
     // 보드 배경색 스타일 적용
     const mainCanvas = document.getElementById('main-canvas');
@@ -1821,11 +1825,22 @@ function bindGeneralEvents() {
     
     if (toggleSectionView) {
         toggleSectionView.checked = isSectionViewEnabled;
-        toggleSectionView.addEventListener('change', (e) => {
-            isSectionViewEnabled = e.target.checked;
-            renderSectionsUI();
-            renderNotes();
-            updateModalSectionVisibility();
+        toggleSectionView.addEventListener('change', async (e) => {
+            const nextValue = e.target.checked;
+            if (!canCurrentUserManageBoard()) {
+                e.target.checked = isSectionViewEnabled;
+                return;
+            }
+            try {
+                isSectionViewEnabled = nextValue;
+                await saveBoardSettings({ sections_enabled: nextValue });
+                renderSectionsUI();
+                renderNotes();
+                updateModalSectionVisibility();
+            } catch (err) {
+                console.error("Save sections_enabled setting failed:", err);
+                e.target.checked = isSectionViewEnabled;
+            }
         });
     }
     

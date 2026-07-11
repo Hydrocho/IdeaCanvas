@@ -58,6 +58,13 @@
             comments_enabled: normalized.comments_enabled,
             likes_enabled: normalized.likes_enabled,
             bg_color: normalized.bg_color,
+            settings_json: {
+                write_enabled: normalized.write_enabled,
+                comments_enabled: normalized.comments_enabled,
+                likes_enabled: normalized.likes_enabled,
+                bg_color: normalized.bg_color,
+                sections_enabled: normalized.sections_enabled,
+            },
             updated_at: now(),
         };
         if (boardId) payload.board_id = boardId;
@@ -69,6 +76,7 @@
                 comments_enabled: payload.comments_enabled,
                 likes_enabled: payload.likes_enabled,
                 bg_color: payload.bg_color,
+                settings_json: payload.settings_json,
                 updated_at: payload.updated_at,
             };
             const { data: updatedData, error: updateError } = await client

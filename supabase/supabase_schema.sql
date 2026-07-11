@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS public.board_settings (
     comments_enabled BOOLEAN NOT NULL DEFAULT true,
     likes_enabled BOOLEAN NOT NULL DEFAULT true,
     bg_color TEXT NOT NULL DEFAULT 'default',
+    settings_json JSONB DEFAULT '{}'::jsonb NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -534,3 +535,17 @@ BEGIN;
 COMMIT;
 
 NOTIFY pgrst, 'reload schema';
+
+ALTER TABLE public.board_settings ADD COLUMN IF NOT EXISTS settings_json JSONB DEFAULT '{}'::jsonb NOT NULL;
+
+-- 기존 컬럼들의 데이터를 settings_json에 마이그레이션
+UPDATE public.board_settings
+SET settings_json = jsonb_build_object(
+    'write_enabled', COALESCE(write_enabled, true),
+    'comments_enabled', COALESCE(comments_enabled, true),
+    'likes_enabled', COALESCE(likes_enabled, true),
+    'bg_color', COALESCE(bg_color, 'default'),
+    'sections_enabled', false
+)
+WHERE settings_json = '{}'::jsonb;
+
