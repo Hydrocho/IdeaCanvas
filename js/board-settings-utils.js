@@ -80,16 +80,25 @@
             ? merged.title.trim()
             : DEFAULT_BOARD_SETTINGS.title;
 
-        return {
-            id: settings.id || DEFAULT_BOARD_SETTINGS.id,
-            board_id: settings.board_id || '',
-            title,
+        const settingsJson = {
+            ...jsonSettings,
             write_enabled: resolveWriteEnabled(merged),
             comments_enabled: resolveCommentsEnabled(merged),
             likes_enabled: resolveLikesEnabled(merged),
             bg_color: resolveBgColor(merged),
             sections_enabled: resolveSectionsEnabled(merged),
-            settings_json: jsonSettings
+        };
+
+        return {
+            id: settings.id || DEFAULT_BOARD_SETTINGS.id,
+            board_id: settings.board_id || '',
+            title,
+            write_enabled: settingsJson.write_enabled,
+            comments_enabled: settingsJson.comments_enabled,
+            likes_enabled: settingsJson.likes_enabled,
+            bg_color: settingsJson.bg_color,
+            sections_enabled: settingsJson.sections_enabled,
+            settings_json: settingsJson
         };
     }
 

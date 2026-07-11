@@ -23,7 +23,13 @@ test('normalizes partial board settings from the server', () => {
     likes_enabled: true,
     bg_color: 'default',
     sections_enabled: false,
-    settings_json: {},
+    settings_json: {
+      write_enabled: true,
+      comments_enabled: true,
+      likes_enabled: true,
+      bg_color: 'default',
+      sections_enabled: false,
+    },
   });
 });
 

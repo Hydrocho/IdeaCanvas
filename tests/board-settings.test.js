@@ -1,288 +1,65 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { loadBoardSettingsFromServer, saveBoardSettingsToServer } = require('../js/board-settings');
 
-const {
-  loadBoardSettingsFromServer,
-  loadBoardSettingsByBoardIdsFromServer,
-  saveBoardSettingsToServer,
-} = require('../js/board-settings');
-
-function createTableStub(result, capture) {
-  return {
-    select(columns) {
-      capture.push(['select', columns]);
-      return this;
-    },
-    eq(column, value) {
-      capture.push(['eq', column, value]);
-      return this;
-    },
-    maybeSingle() {
-      capture.push(['maybeSingle']);
-      return Promise.resolve(result);
-    },
-    upsert(payload, options) {
-      capture.push(['upsert', payload, options]);
-      return this;
-    },
-    update(payload) {
-      capture.push(['update', payload]);
-      return this;
-    },
-    insert(payload) {
-      capture.push(['insert', payload]);
-      return this;
-    },
-    single() {
-      capture.push(['single']);
-      return Promise.resolve(result);
-    },
+function clientFor(result, calls) {
+  const table = {
+    select: () => table,
+    eq: () => table,
+    maybeSingle: () => Promise.resolve(result),
+    update: (payload) => { calls.push(['update', payload]); return table; },
+    insert: (payload) => { calls.push(['insert', payload]); return table; },
+    upsert: (payload) => { calls.push(['upsert', payload]); return table; },
+    single: () => Promise.resolve(result),
   };
+  return { from: () => table };
 }
 
-function createClientStub(result, capture) {
-  return {
-    from(table) {
-      capture.push(['from', table]);
-      return createTableStub(result, capture);
-    },
-  };
-}
-
-test('loads board settings from the board_settings table', async () => {
-  const calls = [];
-  const client = createClientStub({
-    data: { id: 'default', title: '서버 보드', write_enabled: false },
-    error: null,
-  }, calls);
-
-  const settings = await loadBoardSettingsFromServer(client, 'default');
-
-  assert.equal(settings.title, '서버 보드');
+test('loads settings from a JSON-only server row', async () => {
+  const settings = await loadBoardSettingsFromServer(clientFor({
+    data: { id: 's1', board_id: 'b1', settings_json: { write_enabled: false } }, error: null,
+  }, []), 'default', 'b1');
   assert.equal(settings.write_enabled, false);
-  assert.deepEqual(calls, [
-    ['from', 'board_settings'],
-    ['select', '*'],
-    ['eq', 'id', 'default'],
-    ['maybeSingle'],
-  ]);
+  assert.equal(settings.settings_json.comments_enabled, true);
 });
 
-test('loads board settings by board_id when provided', async () => {
+test('merges a toggle patch into JSON without losing future settings', async () => {
   const calls = [];
-  const client = createClientStub({
-    data: { id: 'settings-1', board_id: 'board-1', title: '보드별 설정', write_enabled: true },
-    error: null,
-  }, calls);
+  await saveBoardSettingsToServer(clientFor({
+    data: { id: 's1', board_id: 'b1', settings_json: {} }, error: null,
+  }, calls), {
+    id: 's1', board_id: 'b1', settings_json: { write_enabled: false, future_feature: { mode: 'x' } },
+  }, { write_enabled: true }, () => '2026-07-12T00:00:00.000Z', 'b1');
 
-  const settings = await loadBoardSettingsFromServer(client, 'default', 'board-1');
-
-  assert.equal(settings.title, '보드별 설정');
-  assert.equal(settings.write_enabled, true);
-  assert.deepEqual(calls, [
-    ['from', 'board_settings'],
-    ['select', '*'],
-    ['eq', 'board_id', 'board-1'],
-    ['maybeSingle'],
-  ]);
-});
-
-test('loads board settings for multiple board ids', async () => {
-  const calls = [];
-  const client = {
-    from(table) {
-      calls.push(['from', table]);
-      return {
-        select(columns) {
-          calls.push(['select', columns]);
-          return this;
-        },
-        in(column, values) {
-          calls.push(['in', column, values]);
-          return Promise.resolve({
-            data: [
-              { id: 's1', board_id: 'board-1', title: 'Board 1', write_enabled: false },
-              { id: 's2', board_id: 'board-2', title: 'Board 2', write_enabled: true },
-            ],
-            error: null,
-          });
-        },
-      };
+  assert.deepEqual(calls[0], ['update', {
+    settings_json: {
+      write_enabled: true, comments_enabled: true, likes_enabled: true,
+      bg_color: 'default', sections_enabled: false, future_feature: { mode: 'x' },
     },
+    updated_at: '2026-07-12T00:00:00.000Z',
+  }]);
+});
+
+test('writes no legacy setting columns', async () => {
+  const calls = [];
+  await saveBoardSettingsToServer(clientFor({ data: { id: 's1', settings_json: {} }, error: null }, calls),
+    { id: 's1', settings_json: {} }, { likes_enabled: false }, () => 'now');
+  assert.deepEqual(Object.keys(calls[0][1]).sort(), ['id', 'settings_json', 'updated_at']);
+});
+
+test('inserts a JSON-only row when an update finds no board row', async () => {
+  const calls = [];
+  const client = clientFor({ data: null, error: null }, calls);
+  client.from = () => {
+    const table = {
+      select: () => table, eq: () => table,
+      update: (p) => { calls.push(['update', p]); return table; },
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
+      insert: (p) => { calls.push(['insert', p]); return table; },
+      single: () => Promise.resolve({ data: { id: 'board:b1', board_id: 'b1', settings_json: {} }, error: null }),
+    };
+    return table;
   };
-
-  const settings = await loadBoardSettingsByBoardIdsFromServer(client, ['board-1', 'board-2']);
-
-  assert.equal(settings['board-1'].write_enabled, false);
-  assert.equal(settings['board-2'].write_enabled, true);
-  assert.deepEqual(calls, [
-    ['from', 'board_settings'],
-    ['select', '*'],
-    ['in', 'board_id', ['board-1', 'board-2']],
-  ]);
-});
-
-test('saves normalized board settings with updated_at', async () => {
-  const calls = [];
-  const client = createClientStub({
-    data: { id: 'default', title: '저장된 보드', write_enabled: false },
-    error: null,
-  }, calls);
-
-  const settings = await saveBoardSettingsToServer(
-    client,
-    { id: 'default', title: '기존', write_enabled: true },
-    { title: ' 저장된 보드 ', write_enabled: false },
-    () => '2026-07-08T00:00:00.000Z'
-  );
-
-  assert.equal(settings.title, '저장된 보드');
-  assert.equal(settings.write_enabled, false);
-  assert.deepEqual(calls, [
-    ['from', 'board_settings'],
-    ['upsert', {
-      id: 'default',
-      title: '저장된 보드',
-      write_enabled: false,
-      comments_enabled: true,
-      likes_enabled: true,
-      bg_color: 'default',
-      settings_json: {
-        write_enabled: false,
-        comments_enabled: true,
-        likes_enabled: true,
-        bg_color: 'default',
-        sections_enabled: false,
-      },
-      updated_at: '2026-07-08T00:00:00.000Z',
-    }, undefined],
-    ['select', undefined],
-    ['single'],
-  ]);
-});
-
-test('saves board settings with board_id when provided', async () => {
-  const calls = [];
-  const client = createClientStub({
-    data: { id: 'default', board_id: 'board-1', title: '보드 제목', write_enabled: true },
-    error: null,
-  }, calls);
-
-  await saveBoardSettingsToServer(
-    client,
-    { id: 'default', title: '기존', write_enabled: false },
-    { title: '보드 제목', write_enabled: true },
-    () => '2026-07-08T00:00:00.000Z',
-    'board-1'
-  );
-
-  assert.deepEqual(calls, [
-    ['from', 'board_settings'],
-    ['update', {
-      title: '보드 제목',
-      write_enabled: true,
-      comments_enabled: true,
-      likes_enabled: true,
-      bg_color: 'default',
-      settings_json: {
-        write_enabled: true,
-        comments_enabled: true,
-        likes_enabled: true,
-        bg_color: 'default',
-        sections_enabled: false,
-      },
-      updated_at: '2026-07-08T00:00:00.000Z',
-    }],
-    ['eq', 'board_id', 'board-1'],
-    ['select', undefined],
-    ['maybeSingle'],
-  ]);
-});
-
-test('inserts board settings by board_id when no existing row is found', async () => {
-  const calls = [];
-  const client = {
-    from(table) {
-      calls.push(['from', table]);
-      return {
-        update(payload) {
-          calls.push(['update', payload]);
-          return this;
-        },
-        insert(payload) {
-          calls.push(['insert', payload]);
-          return this;
-        },
-        eq(column, value) {
-          calls.push(['eq', column, value]);
-          return this;
-        },
-        select(columns) {
-          calls.push(['select', columns]);
-          return this;
-        },
-        maybeSingle() {
-          calls.push(['maybeSingle']);
-          return Promise.resolve({ data: null, error: null });
-        },
-        single() {
-          calls.push(['single']);
-          return Promise.resolve({
-            data: { id: 'board:board-1', board_id: 'board-1', title: '보드 제목', write_enabled: true },
-            error: null,
-          });
-        },
-      };
-    },
-  };
-
-  await saveBoardSettingsToServer(
-    client,
-    { id: 'default', title: '기존', write_enabled: false },
-    { title: '보드 제목', write_enabled: true },
-    () => '2026-07-08T00:00:00.000Z',
-    'board-1'
-  );
-
-  assert.deepEqual(calls, [
-    ['from', 'board_settings'],
-    ['update', {
-      title: '보드 제목',
-      write_enabled: true,
-      comments_enabled: true,
-      likes_enabled: true,
-      bg_color: 'default',
-      settings_json: {
-        write_enabled: true,
-        comments_enabled: true,
-        likes_enabled: true,
-        bg_color: 'default',
-        sections_enabled: false,
-      },
-      updated_at: '2026-07-08T00:00:00.000Z',
-    }],
-    ['eq', 'board_id', 'board-1'],
-    ['select', undefined],
-    ['maybeSingle'],
-    ['from', 'board_settings'],
-    ['insert', {
-      id: 'board:board-1',
-      board_id: 'board-1',
-      title: '보드 제목',
-      write_enabled: true,
-      comments_enabled: true,
-      likes_enabled: true,
-      bg_color: 'default',
-      settings_json: {
-        write_enabled: true,
-        comments_enabled: true,
-        likes_enabled: true,
-        bg_color: 'default',
-        sections_enabled: false,
-      },
-      updated_at: '2026-07-08T00:00:00.000Z',
-    }],
-    ['select', undefined],
-    ['single'],
-  ]);
+  await saveBoardSettingsToServer(client, { id: 'default', settings_json: {} }, { sections_enabled: true }, () => 'now', 'b1');
+  assert.deepEqual(Object.keys(calls[1][1]).sort(), ['board_id', 'id', 'settings_json', 'updated_at']);
 });

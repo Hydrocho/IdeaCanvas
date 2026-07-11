@@ -164,14 +164,15 @@
         if (elements.saveStatus) elements.saveStatus.textContent = '저장 중...';
 
         try {
-            currentBoardSettings = await boardSettingsApi.saveBoardSettingsToServer(
+            const savedSettings = await boardSettingsApi.saveBoardSettingsToServer(
                 supabaseClient,
                 currentBoardSettings,
                 nextSettings,
                 undefined,
                 currentBoardId
             );
-            await boardsApi.renameBoardInServer(supabaseClient, currentBoardId, currentBoardSettings.title);
+            currentBoardSettings = { ...savedSettings, title: nextSettings.title };
+            await boardsApi.renameBoardInServer(supabaseClient, currentBoardId, nextSettings.title);
             renderSettings();
             if (elements.saveStatus) elements.saveStatus.textContent = '저장됨';
         } catch (error) {

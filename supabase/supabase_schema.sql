@@ -68,11 +68,6 @@ CREATE TABLE IF NOT EXISTS public.sections (
 CREATE TABLE IF NOT EXISTS public.board_settings (
     id TEXT PRIMARY KEY DEFAULT 'default',
     board_id UUID REFERENCES public.boards(id) ON DELETE CASCADE,
-    title TEXT NOT NULL DEFAULT '새로운 생각',
-    write_enabled BOOLEAN NOT NULL DEFAULT true,
-    comments_enabled BOOLEAN NOT NULL DEFAULT true,
-    likes_enabled BOOLEAN NOT NULL DEFAULT true,
-    bg_color TEXT NOT NULL DEFAULT 'default',
     settings_json JSONB DEFAULT '{}'::jsonb NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -432,7 +427,7 @@ WITH CHECK (
     AND EXISTS (
         SELECT 1 FROM public.board_settings bs
         WHERE bs.board_id = notes.board_id
-          AND bs.write_enabled IS TRUE
+          AND COALESCE((bs.settings_json ->> 'write_enabled')::boolean, true)
     )
 );
 
@@ -448,7 +443,7 @@ WITH CHECK (
     OR EXISTS (
         SELECT 1 FROM public.board_settings bs
         WHERE bs.board_id = notes.board_id
-          AND bs.write_enabled IS TRUE
+          AND COALESCE((bs.settings_json ->> 'write_enabled')::boolean, true)
     )
 );
 
@@ -483,7 +478,7 @@ WITH CHECK (
         FROM public.notes n
         JOIN public.board_settings bs ON bs.board_id = n.board_id
         WHERE n.id = comments.note_id
-          AND bs.write_enabled IS TRUE
+          AND COALESCE((bs.settings_json ->> 'write_enabled')::boolean, true)
     )
 );
 
@@ -501,7 +496,7 @@ WITH CHECK (
         FROM public.notes n
         JOIN public.board_settings bs ON bs.board_id = n.board_id
         WHERE n.id = comments.note_id
-          AND bs.write_enabled IS TRUE
+          AND COALESCE((bs.settings_json ->> 'write_enabled')::boolean, true)
     )
 );
 
@@ -549,3 +544,11 @@ SET settings_json = jsonb_build_object(
 )
 WHERE settings_json = '{}'::jsonb;
 
+ALTER TABLE public.board_settings
+    DROP COLUMN IF EXISTS title,
+    DROP COLUMN IF EXISTS write_enabled,
+    DROP COLUMN IF EXISTS comments_enabled,
+    DROP COLUMN IF EXISTS likes_enabled,
+    DROP COLUMN IF EXISTS bg_color;
+
+NOTIFY pgrst, 'reload schema';

@@ -678,15 +678,19 @@ async function saveBoardSettings(nextSettings) {
         throw new Error('Supabase client is not available');
     }
 
-    currentBoardSettings = await boardSettingsApi.saveBoardSettingsToServer(
+    const boardTitle = Object.prototype.hasOwnProperty.call(nextSettings, 'title')
+        ? nextSettings.title
+        : currentBoardSettings.title;
+    const savedSettings = await boardSettingsApi.saveBoardSettingsToServer(
         supabaseClient,
         currentBoardSettings,
         nextSettings,
         undefined,
         currentBoardId
     );
+    currentBoardSettings = { ...savedSettings, title: boardTitle };
     if (Object.prototype.hasOwnProperty.call(nextSettings, 'title')) {
-        await boardsApi.renameBoardInServer(supabaseClient, currentBoardId, currentBoardSettings.title);
+        await boardsApi.renameBoardInServer(supabaseClient, currentBoardId, boardTitle);
     }
     renderBoardSettings();
     renderNotes();
@@ -1840,6 +1844,7 @@ function bindGeneralEvents() {
                 updateModalSectionVisibility();
             } catch (err) {
                 console.error("Save sections_enabled setting failed:", err);
+                alert("설정 저장 실패: " + (err.message || JSON.stringify(err)));
                 isSectionViewEnabled = previousValue;
                 e.target.checked = previousValue;
             }
@@ -1858,6 +1863,7 @@ function bindGeneralEvents() {
                 await saveBoardSettings({ write_enabled: nextValue });
             } catch (err) {
                 console.error("Save write_enabled setting failed:", err);
+                alert("설정 저장 실패: " + (err.message || JSON.stringify(err)));
                 e.target.checked = currentBoardSettings.write_enabled;
             }
         });
@@ -1877,6 +1883,7 @@ function bindGeneralEvents() {
                 await saveBoardSettings({ comments_enabled: nextValue });
             } catch (err) {
                 console.error("Save comments_enabled setting failed:", err);
+                alert("설정 저장 실패: " + (err.message || JSON.stringify(err)));
                 e.target.checked = currentBoardSettings.comments_enabled !== false;
             }
         });
@@ -1896,6 +1903,7 @@ function bindGeneralEvents() {
                 await saveBoardSettings({ likes_enabled: nextValue });
             } catch (err) {
                 console.error("Save likes_enabled setting failed:", err);
+                alert("설정 저장 실패: " + (err.message || JSON.stringify(err)));
                 e.target.checked = currentBoardSettings.likes_enabled !== false;
             }
         });
@@ -1913,6 +1921,7 @@ function bindGeneralEvents() {
                 await saveBoardSettings({ bg_color: nextBg });
             } catch (err) {
                 console.error("Save bg_color setting failed:", err);
+                alert("설정 저장 실패: " + (err.message || JSON.stringify(err)));
             }
         });
     });
