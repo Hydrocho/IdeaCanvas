@@ -1735,9 +1735,7 @@ function getActiveNoteSurface() {
 function countVisibleRenderedNotes() {
     const surface = getActiveNoteSurface();
     if (!surface) return 0;
-    return Array.from(surface.querySelectorAll('[id^="note-"]'))
-        .filter(card => card.getClientRects().length > 0)
-        .length;
+    return surface.querySelectorAll('[id^="note-"]').length;
 }
 
 function isEmptyCanvasClickTarget(target) {
