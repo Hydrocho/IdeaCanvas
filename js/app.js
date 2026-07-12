@@ -11,6 +11,7 @@ const sectionsApi = globalThis.IdeaCanvasSections;
 const authUtils = globalThis.IdeaCanvasAuth;
 const likesApi = globalThis.IdeaCanvasLikes;
 const attachmentUtils = globalThis.IdeaCanvasAttachmentUtils;
+const drawingUtils = globalThis.IdeaCanvasDrawingUtils;
 const DEFAULT_SECTIONS = [
     { id: 'sec-1', name: sectionUtils.DEFAULT_SECTION_NAME, sort_order: 1 }
 ];
@@ -491,8 +492,8 @@ function renderNotes() {
 
                 <!-- 손그림 노출 -->
                 ${hasSketch ? `
-                    <div class="w-full rounded-xl overflow-hidden max-h-48 mb-3 bg-white border border-outline-variant/20 p-2">
-                        <img src="${note.drawing_data}" class="clickable-note-img w-full h-full object-contain mx-auto"/>
+                    <div class="w-full rounded-xl overflow-hidden h-48 mb-3 bg-white border border-outline-variant/20 p-2">
+                        <img src="${note.drawing_data}" class="clickable-note-img note-drawing-img w-full h-full object-contain mx-auto"/>
                     </div>
                 ` : ''}
 
@@ -1604,7 +1605,7 @@ function bindDrawingControls() {
         }
 
         // Base64 추출
-        sketchImageBase64 = canvas.toDataURL('image/png');
+        sketchImageBase64 = drawingUtils.flattenCanvasOnWhiteBackground(canvas, document);
         attachmentType = 'draw';
         updateAttachmentToolState();
         elements.sketchThumbnailImg.src = sketchImageBase64;
@@ -2072,7 +2073,7 @@ function bindGeneralEvents() {
     });
 
     // 이미지 확대 모달(Lightbox) 오픈 함수
-    function openImageLightbox(src, title) {
+    function openImageLightbox(src, title, isDrawing = false) {
         const modal = document.getElementById('image-lightbox-modal');
         const img = document.getElementById('lightbox-img');
         const caption = document.getElementById('lightbox-caption');
@@ -2081,6 +2082,7 @@ function bindGeneralEvents() {
         if (!modal || !img) return;
         
         img.src = src;
+        img.classList.toggle('bg-white', isDrawing);
         
         if (title) {
             caption.textContent = title;
@@ -2140,15 +2142,16 @@ function bindGeneralEvents() {
     });
     
     // 메모 내부 이미지 클릭 이벤트 위임
-    if (elements.notesGrid) {
-        elements.notesGrid.addEventListener('click', (e) => {
+    const noteContentArea = document.getElementById('main-canvas');
+    if (noteContentArea) {
+        noteContentArea.addEventListener('click', (e) => {
             const clickedImg = e.target.closest('.clickable-note-img');
             if (clickedImg) {
                 const src = clickedImg.getAttribute('src');
                 const card = clickedImg.closest('.group\\/card');
                 const titleEl = card ? card.querySelector('h4') : null;
                 const title = titleEl ? titleEl.textContent.trim() : '';
-                openImageLightbox(src, title);
+                openImageLightbox(src, title, clickedImg.classList.contains('note-drawing-img'));
             }
         });
     }
