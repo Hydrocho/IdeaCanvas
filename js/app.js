@@ -13,6 +13,7 @@ const likesApi = globalThis.IdeaCanvasLikes;
 const attachmentUtils = globalThis.IdeaCanvasAttachmentUtils;
 const drawingUtils = globalThis.IdeaCanvasDrawingUtils;
 const masonryUtils = globalThis.IdeaCanvasMasonryUtils;
+const noteVisibilityUtils = globalThis.IdeaCanvasNoteVisibilityUtils;
 const DEFAULT_SECTIONS = [
     { id: 'sec-1', name: sectionUtils.DEFAULT_SECTION_NAME, sort_order: 1 }
 ];
@@ -804,6 +805,7 @@ async function migrateLegacyDefaultSectionsToSupabase(legacySections, nextSectNa
 function renderSectionsUI() {
     const kanbanBoard = document.getElementById('kanban-board');
     if (!kanbanBoard) return;
+    const canManageSections = canCurrentUserManageBoard();
 
     // 1. 칸반 보드 컬럼들 그리기
     kanbanBoard.innerHTML = '';
@@ -817,21 +819,23 @@ function renderSectionsUI() {
             <div class="flex items-center justify-between border-b border-outline-variant/20 pb-2.5 mb-1 shrink-0 select-none group/header">
                 <div class="flex items-center gap-1.5 min-w-0 flex-1">
                     <!-- 더블클릭 수정 텍스트 영역 -->
-                    <span id="sect-title-${s.id}" class="font-bold text-xs bg-primary/10 text-primary px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer truncate max-w-full" title="더블클릭하여 제목 수정">
+                    <span id="sect-title-${s.id}" class="font-bold text-xs bg-primary/10 text-primary px-3 py-1 rounded-full flex items-center gap-1 ${canManageSections ? 'cursor-pointer' : 'cursor-default'} truncate max-w-full" ${canManageSections ? 'title="더블클릭하여 제목 수정"' : ''}>
                         <span class="material-symbols-outlined text-sm">label</span>
                         <span class="sect-name-text">${escapeHtml(s.name)}</span>
                     </span>
                     <!-- 인풋 필드 (기본 숨김) -->
-                    <input id="sect-input-${s.id}" type="text" value="${escapeHtml(s.name)}" class="hidden px-2 py-0.5 border border-primary rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary w-full"/>
+                    ${canManageSections ? `<input id="sect-input-${s.id}" type="text" value="${escapeHtml(s.name)}" class="hidden px-2 py-0.5 border border-primary rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary w-full"/>` : ''}
                 </div>
                 <div class="flex items-center gap-1 shrink-0 ml-2">
                     <span id="count-${s.id}" class="text-xs font-semibold text-on-surface-variant mr-1">0</span>
                     <button onclick="openNoteModalForSection(this)" class="w-6 h-6 rounded-full hover:bg-primary/10 text-primary flex items-center justify-center transition-all" title="이 섹션에 메모 추가">
                         <span class="material-symbols-outlined text-base">add_circle</span>
                     </button>
-                    <button onclick="deleteSection('${s.id}')" class="w-6 h-6 rounded-full hover:bg-error-container/20 text-on-surface-variant hover:text-error flex items-center justify-center opacity-0 group-hover/header:opacity-100 transition-opacity" title="섹션 삭제">
-                        <span class="material-symbols-outlined text-sm">delete</span>
-                    </button>
+                    ${canManageSections ? `
+                        <button onclick="deleteSection('${s.id}')" class="w-6 h-6 rounded-full hover:bg-error-container/20 text-on-surface-variant hover:text-error flex items-center justify-center opacity-0 group-hover/header:opacity-100 transition-opacity" title="섹션 삭제">
+                            <span class="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                    ` : ''}
                 </div>
             </div>
             <div id="col-${s.id}" class="space-y-4 flex-1 min-h-[200px] pb-2"></div>
@@ -843,7 +847,7 @@ function renderSectionsUI() {
         const titleEl = document.getElementById(`sect-title-${s.id}`);
         const inputEl = document.getElementById(`sect-input-${s.id}`);
 
-        if (titleEl && inputEl) {
+        if (canManageSections && titleEl && inputEl) {
             const nameSpan = titleEl.querySelector('.sect-name-text');
 
             const enableEdit = () => {
@@ -882,15 +886,17 @@ function renderSectionsUI() {
     });
 
     // 2. "+ 섹션 추가" 단추 카드 생성하여 맨 오른쪽에 붙임
-    const addColBtn = document.createElement('button');
-    addColBtn.id = 'add-kanban-section-btn';
-    addColBtn.className = 'w-[280px] md:w-[320px] h-32 border-2 border-dashed border-outline-variant/40 hover:border-primary/50 bg-surface-container-low/20 rounded-2xl flex flex-col items-center justify-center gap-2 text-on-surface-variant hover:text-primary transition-all shrink-0';
-    addColBtn.innerHTML = `
-        <span class="material-symbols-outlined text-2xl">add_circle</span>
-        <span class="font-bold text-xs">섹션 추가</span>
-    `;
-    addColBtn.addEventListener('click', addSection);
-    kanbanBoard.appendChild(addColBtn);
+    if (canManageSections) {
+        const addColBtn = document.createElement('button');
+        addColBtn.id = 'add-kanban-section-btn';
+        addColBtn.className = 'w-[280px] md:w-[320px] h-32 border-2 border-dashed border-outline-variant/40 hover:border-primary/50 bg-surface-container-low/20 rounded-2xl flex flex-col items-center justify-center gap-2 text-on-surface-variant hover:text-primary transition-all shrink-0';
+        addColBtn.innerHTML = `
+            <span class="material-symbols-outlined text-2xl">add_circle</span>
+            <span class="font-bold text-xs">섹션 추가</span>
+        `;
+        addColBtn.addEventListener('click', addSection);
+        kanbanBoard.appendChild(addColBtn);
+    }
 
 
     // 3. 모달 내의 섹션 선택 라디오 버튼 리스트 갱신
@@ -930,8 +936,15 @@ function renderSectionsUI() {
     requestAnimationFrame(syncKanbanScrollProxy);
 }
 
+function requireSectionManagementPermission() {
+    if (canCurrentUserManageBoard()) return true;
+    alert('교사 계정만 섹션을 변경할 수 있습니다.');
+    return false;
+}
+
 // 섹션 추가 액션
 async function addSection() {
+    if (!requireSectionManagementPermission()) return;
     if (!requireSupabaseForSectionMutation()) return;
 
     const newName = sectionUtils.getNextSectionName(currentSections);
@@ -960,6 +973,7 @@ async function addSection() {
 
 // 섹션 이름 수정 액션
 async function updateSectionName(sectionId, newName, oldName) {
+    if (!requireSectionManagementPermission()) return;
     if (!requireSupabaseForSectionMutation()) {
         renderSectionsUI();
         renderNotes();
@@ -996,6 +1010,7 @@ async function updateSectionName(sectionId, newName, oldName) {
 
 // 섹션 삭제 액션
 async function deleteSection(sectionId) {
+    if (!requireSectionManagementPermission()) return;
     if (!requireSupabaseForSectionMutation()) return;
 
     const s = currentSections.find(sec => sec.id === sectionId);
@@ -1713,6 +1728,41 @@ function syncKanbanScrollProxy() {
     });
 }
 
+function getActiveNoteSurface() {
+    return document.getElementById(noteVisibilityUtils.getActiveNoteSurfaceId(isSectionViewEnabled));
+}
+
+function countVisibleRenderedNotes() {
+    const surface = getActiveNoteSurface();
+    if (!surface) return 0;
+    return Array.from(surface.querySelectorAll('[id^="note-"]'))
+        .filter(card => card.getClientRects().length > 0)
+        .length;
+}
+
+function isEmptyCanvasClickTarget(target) {
+    if (!(target instanceof Element)) return false;
+    return !target.closest('[id^="note-"], button, input, textarea, select, a, [role="button"]');
+}
+
+function recoverAnonymousNoteVisibility() {
+    if (currentUser) return;
+
+    const shouldRecover = noteVisibilityUtils.shouldRecoverNoteVisibility({
+        noteCount: currentNotes.length,
+        visibleCardCount: countVisibleRenderedNotes(),
+        searchQuery: elements.searchInput?.value || '',
+    });
+    if (!shouldRecover) return;
+
+    try {
+        if (isSectionViewEnabled) renderSectionsUI();
+        renderNotes();
+    } catch (error) {
+        console.error('Anonymous note visibility recovery failed:', error);
+    }
+}
+
 // --- 9. 일반 헬퍼 및 이벤트 바인딩 ---
 
 // 모달 닫기 공통
@@ -2214,6 +2264,7 @@ function bindGeneralEvents() {
     const noteContentArea = document.getElementById('main-canvas');
     if (noteContentArea) {
         noteContentArea.addEventListener('click', (e) => {
+            if (!(e.target instanceof Element)) return;
             const clickedImg = e.target.closest('.clickable-note-img');
             if (clickedImg) {
                 const src = clickedImg.getAttribute('src');
@@ -2221,6 +2272,9 @@ function bindGeneralEvents() {
                 const titleEl = card ? card.querySelector('h4') : null;
                 const title = titleEl ? titleEl.textContent.trim() : '';
                 openImageLightbox(src, title, clickedImg.classList.contains('note-drawing-img'));
+            }
+            if (isEmptyCanvasClickTarget(e.target)) {
+                window.requestAnimationFrame(recoverAnonymousNoteVisibility);
             }
         });
     }
@@ -2276,6 +2330,7 @@ function bindGeneralEvents() {
         }
         updateAuthUI();
         renderBoardSettings();
+        renderSectionsUI();
     }
 
     if (supabaseClient) {
