@@ -1292,6 +1292,10 @@ async function openEditNoteModal(id) {
 // 좋아요 토글
 async function toggleLike(noteId) {
     if (!supabaseClient) return;
+    if (authUtils.isRejectedTeacher(currentProfile)) {
+        alert('가입이 거부된 계정은 보드 기능을 사용할 수 없습니다.');
+        return;
+    }
     if (pendingLikeNoteIds.has(noteId)) return;
 
     const userLiked = userLikesMap[noteId] || false;
@@ -2225,24 +2229,40 @@ function bindGeneralEvents() {
     function getCurrentRoleLabel() {
         if (!currentProfile) return '\uad50\uc0ac \uc2b9\uc778 \ub300\uae30';
         if (currentProfile.is_master) return currentProfile.is_primary_master ? '\ucd5c\ucd08 \ub9c8\uc2a4\ud130' : '\ub9c8\uc2a4\ud130';
-        return currentProfile.role === 'teacher' ? '\uad50\uc0ac' : '\uad50\uc0ac \uc2b9\uc778 \ub300\uae30';
+        if (currentProfile.role === 'teacher') return '\uad50\uc0ac';
+        return currentProfile.role === 'teacher_rejected' ? '\uac00\uc785 \uac70\ubd80' : '\uad50\uc0ac \uc2b9\uc778 \ub300\uae30';
     }
 
     function updateAuthUI() {
         const loggedOutEl = document.getElementById('auth-logged-out');
         const loggedInEl = document.getElementById('auth-logged-in');
         const emailDisplay = document.getElementById('user-email-display');
+        const statusBadge = document.getElementById('auth-status-badge');
         const displayName = authUtils.getDisplayName(currentProfile, currentUser);
+        const isPendingTeacher = currentProfile?.role === 'teacher_pending';
+        const isRejectedTeacher = currentProfile?.role === 'teacher_rejected';
 
         if (currentUser) {
             if (loggedOutEl) loggedOutEl.classList.add('hidden');
             if (loggedInEl) loggedInEl.classList.remove('hidden');
             if (emailDisplay) emailDisplay.textContent = displayName ? displayName + ' (' + getCurrentRoleLabel() + ')' : currentUser.email;
+            if (statusBadge) {
+                statusBadge.textContent = isPendingTeacher ? '교사 승인 대기 중' : (isRejectedTeacher ? '가입이 거부되었습니다' : '');
+                statusBadge.classList.toggle('hidden', !isPendingTeacher && !isRejectedTeacher);
+                statusBadge.classList.toggle('bg-amber-100', isPendingTeacher);
+                statusBadge.classList.toggle('text-amber-800', isPendingTeacher);
+                statusBadge.classList.toggle('bg-red-100', isRejectedTeacher);
+                statusBadge.classList.toggle('text-red-700', isRejectedTeacher);
+            }
             if (elements.noteAuthor) elements.noteAuthor.value = displayName || currentUser.email.split('@')[0];
         } else {
             if (loggedOutEl) loggedOutEl.classList.remove('hidden');
             if (loggedInEl) loggedInEl.classList.add('hidden');
             if (emailDisplay) emailDisplay.textContent = '';
+            if (statusBadge) {
+                statusBadge.textContent = '';
+                statusBadge.classList.add('hidden');
+            }
             if (elements.noteAuthor) elements.noteAuthor.value = '';
         }
         renderBoardAccessUI();
@@ -2284,7 +2304,7 @@ function bindGeneralEvents() {
                 if (error) throw error;
                 await refreshAuthState(data.user);
                 const authDropdownMenu = document.getElementById('auth-dropdown-menu');
-                if (authDropdownMenu) {
+                if (authDropdownMenu && !['teacher_pending', 'teacher_rejected'].includes(currentProfile?.role)) {
                     authDropdownMenu.classList.add('hidden');
                 }
             } catch (err) {

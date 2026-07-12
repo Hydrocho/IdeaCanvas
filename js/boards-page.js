@@ -95,6 +95,7 @@
         accountsPanel: document.getElementById('accounts-panel'),
         pendingTeachersList: document.getElementById('pending-teachers-list'),
         approvedTeachersList: document.getElementById('approved-teachers-list'),
+        rejectedTeachersList: document.getElementById('rejected-teachers-list'),
     };
 
     function setStatus(message) {
@@ -120,7 +121,8 @@
     function getRoleLabel() {
         if (!currentProfile) return '승인 대기';
         if (currentProfile.is_master) return currentProfile.is_primary_master ? '최초 마스터' : '마스터';
-        return currentProfile.role === 'teacher' ? '교사' : '승인 대기';
+        if (currentProfile.role === 'teacher') return '교사';
+        return currentProfile.role === 'teacher_rejected' ? '가입 거부' : '승인 대기';
     }
 
     function showAuthPanel(mode) {
@@ -402,15 +404,17 @@
     }
 
     function renderAccounts() {
-        if (!elements.pendingTeachersList || !elements.approvedTeachersList) return;
+        if (!elements.pendingTeachersList || !elements.approvedTeachersList || !elements.rejectedTeachersList) return;
         if (!authUtils.isMaster(currentProfile)) {
             elements.pendingTeachersList.innerHTML = '';
             elements.approvedTeachersList.innerHTML = '';
+            elements.rejectedTeachersList.innerHTML = '';
             return;
         }
 
         const pending = profiles.filter(profile => profile.role === 'teacher_pending');
         const approved = profiles.filter(profile => profile.role === 'teacher');
+        const rejected = profiles.filter(profile => profile.role === 'teacher_rejected');
 
         elements.pendingTeachersList.innerHTML = pending.length
             ? pending.map(profile => renderProfileRow(profile, 'pending')).join('')
@@ -419,6 +423,10 @@
         elements.approvedTeachersList.innerHTML = approved.length
             ? approved.map(profile => renderProfileRow(profile, 'approved')).join('')
             : '<p>승인된 교사가 없습니다.</p>';
+
+        elements.rejectedTeachersList.innerHTML = rejected.length
+            ? rejected.map(profile => renderProfileRow(profile, 'rejected')).join('')
+            : '<p>가입 거부된 교사가 없습니다.</p>';
     }
 
     function renderProfileRow(profile, group) {
@@ -429,6 +437,9 @@
                 : '';
         const approveButton = group === 'pending'
             ? `<button type="button" data-action="approve-teacher" data-user-id="${escapeHtml(profile.user_id)}" class="px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold">승인</button>`
+            : '';
+        const rejectButton = group === 'pending'
+            ? `<button type="button" data-action="reject-teacher" data-user-id="${escapeHtml(profile.user_id)}" class="px-3 py-2 rounded-lg border border-error/40 text-error text-xs font-bold hover:bg-error-container/20">거부</button>`
             : '';
         const masterButton = group === 'approved' && !profile.is_primary_master
             ? profile.is_master
@@ -442,7 +453,7 @@
                     <p class="font-bold text-on-surface">${escapeHtml(profile.display_name || '이름 없음')}</p>
                     <p class="text-xs text-on-surface-variant">${escapeHtml(profile.user_id)} ${masterBadge}</p>
                 </div>
-                <div class="flex gap-2">${approveButton}${masterButton}</div>
+                <div class="flex gap-2">${approveButton}${rejectButton}${masterButton}</div>
             </div>
         `;
     }
@@ -585,6 +596,9 @@
         try {
             if (action === 'approve-teacher') {
                 await updateProfile(userId, { role: 'teacher' });
+            } else if (action === 'reject-teacher') {
+                if (!confirm('이 교사 가입을 거부할까요? 거부된 계정은 보드 기능을 사용할 수 없습니다.')) return;
+                await updateProfile(userId, { role: 'teacher_rejected' });
             } else if (action === 'grant-master') {
                 await updateProfile(userId, { is_master: true, role: 'teacher' });
             } else if (action === 'revoke-master') {

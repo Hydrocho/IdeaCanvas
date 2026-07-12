@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.boards (
 CREATE TABLE IF NOT EXISTS public.profiles (
     user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     display_name TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'teacher_pending' CHECK (role IN ('teacher_pending', 'teacher')),
+    role TEXT NOT NULL DEFAULT 'teacher_pending' CHECK (role IN ('teacher_pending', 'teacher', 'teacher_rejected')),
     is_master BOOLEAN NOT NULL DEFAULT false,
     is_primary_master BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -136,6 +136,11 @@ BEGIN
 END $$;
 ALTER TABLE public.board_settings ALTER COLUMN write_enabled SET NOT NULL;
 
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles
+ADD CONSTRAINT profiles_role_check
+CHECK (role IN ('teacher_pending', 'teacher', 'teacher_rejected'));
+
 WITH default_board AS (
     INSERT INTO public.boards (title)
     SELECT '기본 보드'
@@ -207,6 +212,20 @@ AS $$
     SELECT role
     FROM public.profiles
     WHERE user_id = (SELECT auth.uid());
+$$;
+
+CREATE OR REPLACE FUNCTION private.current_profile_is_rejected()
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.profiles
+        WHERE user_id = (SELECT auth.uid())
+          AND role = 'teacher_rejected'
+    );
 $$;
 
 CREATE OR REPLACE FUNCTION private.current_profile_is_primary_master()
@@ -288,6 +307,7 @@ GRANT USAGE ON SCHEMA private TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION private.current_profile_is_master() TO authenticated;
 GRANT EXECUTE ON FUNCTION private.profiles_exist() TO authenticated;
 GRANT EXECUTE ON FUNCTION private.current_profile_role() TO authenticated;
+GRANT EXECUTE ON FUNCTION private.current_profile_is_rejected() TO authenticated;
 GRANT EXECUTE ON FUNCTION private.current_profile_is_primary_master() TO authenticated;
 GRANT EXECUTE ON FUNCTION private.current_profile_is_teacher_or_master() TO authenticated;
 GRANT EXECUTE ON FUNCTION private.current_profile_can_write() TO authenticated;
@@ -436,14 +456,17 @@ CREATE POLICY "Authenticated users write when allowed"
 ON public.notes FOR INSERT
 TO authenticated
 WITH CHECK (
-    (
-        (SELECT private.current_profile_can_write())
-        AND author_user_id = (SELECT auth.uid())
-    )
-    OR EXISTS (
-        SELECT 1 FROM public.board_settings bs
-        WHERE bs.board_id = notes.board_id
-          AND COALESCE((bs.settings_json ->> 'write_enabled')::boolean, true)
+    NOT (SELECT private.current_profile_is_rejected())
+    AND (
+        (
+            (SELECT private.current_profile_can_write())
+            AND author_user_id = (SELECT auth.uid())
+        )
+        OR EXISTS (
+            SELECT 1 FROM public.board_settings bs
+            WHERE bs.board_id = notes.board_id
+              AND COALESCE((bs.settings_json ->> 'write_enabled')::boolean, true)
+        )
     )
 );
 
@@ -451,14 +474,14 @@ DROP POLICY IF EXISTS "Authors and teachers update notes" ON public.notes;
 CREATE POLICY "Authors and teachers update notes"
 ON public.notes FOR UPDATE
 TO authenticated
-USING (author_user_id = (SELECT auth.uid()) OR (SELECT private.current_profile_is_teacher_or_master()))
-WITH CHECK (author_user_id = (SELECT auth.uid()) OR (SELECT private.current_profile_is_teacher_or_master()));
+USING (NOT (SELECT private.current_profile_is_rejected()) AND (author_user_id = (SELECT auth.uid()) OR (SELECT private.current_profile_is_teacher_or_master())))
+WITH CHECK (NOT (SELECT private.current_profile_is_rejected()) AND (author_user_id = (SELECT auth.uid()) OR (SELECT private.current_profile_is_teacher_or_master())));
 
 DROP POLICY IF EXISTS "Authors and teachers delete notes" ON public.notes;
 CREATE POLICY "Authors and teachers delete notes"
 ON public.notes FOR DELETE
 TO authenticated
-USING (author_user_id = (SELECT auth.uid()) OR (SELECT private.current_profile_is_teacher_or_master()));
+USING (NOT (SELECT private.current_profile_is_rejected()) AND (author_user_id = (SELECT auth.uid()) OR (SELECT private.current_profile_is_teacher_or_master())));
 
 DROP POLICY IF EXISTS "Comments readable" ON public.comments;
 CREATE POLICY "Comments readable"
@@ -487,16 +510,19 @@ CREATE POLICY "Authenticated users comment when allowed"
 ON public.comments FOR INSERT
 TO authenticated
 WITH CHECK (
-    (
-        (SELECT private.current_profile_can_write())
-        AND author_user_id = (SELECT auth.uid())
-    )
-    OR EXISTS (
-        SELECT 1
-        FROM public.notes n
-        JOIN public.board_settings bs ON bs.board_id = n.board_id
-        WHERE n.id = comments.note_id
-          AND COALESCE((bs.settings_json ->> 'write_enabled')::boolean, true)
+    NOT (SELECT private.current_profile_is_rejected())
+    AND (
+        (
+            (SELECT private.current_profile_can_write())
+            AND author_user_id = (SELECT auth.uid())
+        )
+        OR EXISTS (
+            SELECT 1
+            FROM public.notes n
+            JOIN public.board_settings bs ON bs.board_id = n.board_id
+            WHERE n.id = comments.note_id
+              AND COALESCE((bs.settings_json ->> 'write_enabled')::boolean, true)
+        )
     )
 );
 
@@ -504,7 +530,7 @@ DROP POLICY IF EXISTS "Comment authors and teachers delete comments" ON public.c
 CREATE POLICY "Comment authors and teachers delete comments"
 ON public.comments FOR DELETE
 TO authenticated
-USING (author_user_id = (SELECT auth.uid()) OR (SELECT private.current_profile_is_teacher_or_master()));
+USING (NOT (SELECT private.current_profile_is_rejected()) AND (author_user_id = (SELECT auth.uid()) OR (SELECT private.current_profile_is_teacher_or_master())));
 
 DROP POLICY IF EXISTS "Likes readable" ON public.likes;
 CREATE POLICY "Likes readable"
@@ -513,16 +539,28 @@ TO anon, authenticated
 USING (true);
 
 DROP POLICY IF EXISTS "Anyone can like" ON public.likes;
-CREATE POLICY "Anyone can like"
+CREATE POLICY "Guests can like"
 ON public.likes FOR INSERT
-TO anon, authenticated
+TO anon
 WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Non-rejected users can like" ON public.likes;
+CREATE POLICY "Non-rejected users can like"
+ON public.likes FOR INSERT
+TO authenticated
+WITH CHECK (NOT (SELECT private.current_profile_is_rejected()));
+
 DROP POLICY IF EXISTS "Users can remove own likes" ON public.likes;
-CREATE POLICY "Users can remove own likes"
+CREATE POLICY "Guests can remove likes"
 ON public.likes FOR DELETE
-TO anon, authenticated
+TO anon
 USING (true);
+
+DROP POLICY IF EXISTS "Non-rejected users can remove likes" ON public.likes;
+CREATE POLICY "Non-rejected users can remove likes"
+ON public.likes FOR DELETE
+TO authenticated
+USING (NOT (SELECT private.current_profile_is_rejected()));
 
 BEGIN;
   DROP PUBLICATION IF EXISTS supabase_realtime;

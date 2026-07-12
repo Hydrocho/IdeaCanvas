@@ -31,15 +31,18 @@ test('normalizes missing and partial profiles', () => {
 });
 
 test('detects teacher and master capabilities', () => {
-  const pending = normalizeProfile({ user_id: 'p', display_name: 'Pending', role: 'teacher_pending' });
+    const pending = normalizeProfile({ user_id: 'p', display_name: 'Pending', role: 'teacher_pending' });
+    const rejected = normalizeProfile({ user_id: 'r', display_name: 'Rejected', role: 'teacher_rejected' });
   const teacher = normalizeProfile({ user_id: 't', display_name: 'Teacher', role: 'teacher' });
   const master = normalizeProfile({ user_id: 'm', display_name: 'Master', role: 'teacher', is_master: true });
 
-  assert.equal(isApprovedTeacher(pending), false);
-  assert.equal(isApprovedTeacher(teacher), true);
-  assert.equal(isTeacherAccount(pending), true);
+    assert.equal(isApprovedTeacher(pending), false);
+    assert.equal(isApprovedTeacher(teacher), true);
+    assert.equal(isTeacherAccount(pending), true);
+    assert.equal(isTeacherAccount(rejected), false);
   assert.equal(isMaster(master), true);
-  assert.equal(canCreateBoard(pending), false);
+    assert.equal(canCreateBoard(pending), false);
+    assert.equal(canCreateBoard(rejected), false);
   assert.equal(canCreateBoard(teacher), true);
   assert.equal(canCreateBoard(master), true);
   assert.equal(canUseDashboard(null), false);
@@ -56,11 +59,13 @@ test('allows guest writing only when write_enabled is true', () => {
 test('allows teacher accounts and masters to write regardless of board setting', () => {
   const pending = normalizeProfile({ user_id: 'p', display_name: 'Pending', role: 'teacher_pending' });
   const teacher = normalizeProfile({ user_id: 't', display_name: 'Teacher', role: 'teacher' });
-  const master = normalizeProfile({ user_id: 'm', display_name: 'Master', role: 'teacher_pending', is_master: true });
+    const master = normalizeProfile({ user_id: 'm', display_name: 'Master', role: 'teacher_pending', is_master: true });
+    const rejected = normalizeProfile({ user_id: 'r', display_name: 'Rejected', role: 'teacher_rejected' });
 
   assert.equal(canWriteToBoard(pending, { write_enabled: false }), true);
   assert.equal(canWriteToBoard(teacher, { write_enabled: false }), true);
-  assert.equal(canWriteToBoard(master, { write_enabled: false }), true);
+    assert.equal(canWriteToBoard(master, { write_enabled: false }), true);
+    assert.equal(canWriteToBoard(rejected, { write_enabled: true }), false);
 });
 
 test('uses profile name before email when displaying an authenticated user', () => {

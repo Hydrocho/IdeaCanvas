@@ -10,7 +10,9 @@
         const displayName = typeof profile.display_name === 'string' && profile.display_name.trim()
             ? profile.display_name.trim()
             : '';
-        const role = profile.role === 'teacher' ? 'teacher' : 'teacher_pending';
+        const role = ['teacher_pending', 'teacher', 'teacher_rejected'].includes(profile.role)
+            ? profile.role
+            : 'teacher_pending';
         return {
             user_id: profile.user_id || profile.id || '',
             display_name: displayName,
@@ -30,6 +32,10 @@
         return normalized?.role === 'teacher_pending' || normalized?.role === 'teacher' || normalized?.is_master === true;
     }
 
+    function isRejectedTeacher(profile) {
+        return normalizeProfile(profile)?.role === 'teacher_rejected';
+    }
+
     function isMaster(profile) {
         const normalized = normalizeProfile(profile);
         return normalized?.is_master === true;
@@ -44,6 +50,7 @@
     }
 
     function canWriteToBoard(profile, settings) {
+        if (isRejectedTeacher(profile)) return false;
         if (isTeacherAccount(profile)) return true;
         return settings?.write_enabled === true;
     }
@@ -99,6 +106,7 @@
         normalizeProfile,
         isApprovedTeacher,
         isTeacherAccount,
+        isRejectedTeacher,
         isMaster,
         canCreateBoard,
         canUseDashboard,
