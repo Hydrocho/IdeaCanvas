@@ -13,5 +13,5 @@ test('renders sketch thumbnails in a fixed-height contain frame without clipping
     assert.match(app, /img\.classList\.toggle\('bg-white', isDrawing\)/);
     assert.match(app, /openImageLightbox\(src, title, clickedImg\.classList\.contains\('note-drawing-img'\)\)/);
     assert.match(board, /<script src="js\/drawing-utils\.js"><\/script>/);
-    assert.match(board, /<script src="js\/app\.js\?v=1\.0\.2"><\/script>/);
+    assert.match(board, /<script src="js\/app\.js\?v=1\.0\.3"><\/script>/);
 });

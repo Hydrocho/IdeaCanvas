@@ -12,6 +12,7 @@ const authUtils = globalThis.IdeaCanvasAuth;
 const likesApi = globalThis.IdeaCanvasLikes;
 const attachmentUtils = globalThis.IdeaCanvasAttachmentUtils;
 const drawingUtils = globalThis.IdeaCanvasDrawingUtils;
+const masonryUtils = globalThis.IdeaCanvasMasonryUtils;
 const DEFAULT_SECTIONS = [
     { id: 'sec-1', name: sectionUtils.DEFAULT_SECTION_NAME, sort_order: 1 }
 ];
@@ -25,6 +26,8 @@ let likeCountMap = {}; // noteId => count
 let userLikesMap = {}; // noteId => true/false (현재 사용자가 좋아요를 눌렀는지 여부)
 let likeIdToNoteIdMap = {}; // like.id => like.note_id (Supabase Realtime DELETE 대응용)
 const pendingLikeNoteIds = new Set();
+let masonryRebalanceFrame = null;
+let masonryResizeTimer = null;
 
 // 사용자 식별을 위한 로컬 스토리지 정보
 let authorId = localStorage.getItem('ideacanvas_author_id');
@@ -376,6 +379,52 @@ function subscribeRealtime() {
 }
 
 // --- 5. UI 렌더링 로직 (그리드 카드 생성) ---
+function createMasonryColumns() {
+    if (!elements.notesGrid) return [];
+
+    elements.notesGrid.innerHTML = '';
+    const columnCount = masonryUtils.getMasonryColumnCount(window.innerWidth);
+    return Array.from({ length: columnCount }, () => {
+        const column = document.createElement('div');
+        column.className = 'masonry-column';
+        elements.notesGrid.appendChild(column);
+        return column;
+    });
+}
+
+function appendToShortestMasonryColumn(card, columns) {
+    const shortestColumn = columns.reduce((shortest, column) => (
+        column.offsetHeight < shortest.offsetHeight ? column : shortest
+    ));
+    shortestColumn.appendChild(card);
+}
+
+function rebalanceMasonryColumns() {
+    if (isSectionViewEnabled || currentBoardSettings.note_layout === 'grid' || !elements.notesGrid) return;
+
+    const cards = Array.from(elements.notesGrid.querySelectorAll('.masonry-item'))
+        .sort((a, b) => Number(a.dataset.masonryIndex) - Number(b.dataset.masonryIndex));
+    if (!cards.length) return;
+
+    const columns = createMasonryColumns();
+    cards.forEach(card => appendToShortestMasonryColumn(card, columns));
+}
+
+function scheduleMasonryRebalance() {
+    if (masonryRebalanceFrame !== null) return;
+    masonryRebalanceFrame = window.requestAnimationFrame(() => {
+        masonryRebalanceFrame = null;
+        rebalanceMasonryColumns();
+    });
+}
+
+function watchMasonryImages() {
+    if (!elements.notesGrid) return;
+    elements.notesGrid.querySelectorAll('.masonry-item img').forEach(img => {
+        if (!img.complete) img.addEventListener('load', scheduleMasonryRebalance, { once: true });
+    });
+}
+
 function renderNotes() {
     const isKanbanMode = isSectionViewEnabled;
 
@@ -422,7 +471,11 @@ function renderNotes() {
     });
 
     filteredNotes.sort(compareNotesByBoardSort);
-    filteredNotes.forEach(note => {
+    const masonryColumns = !isKanbanMode && currentBoardSettings.note_layout !== 'grid'
+        ? createMasonryColumns()
+        : [];
+
+    filteredNotes.forEach((note, masonryIndex) => {
         const cardWrapper = document.createElement('div');
         cardWrapper.id = `note-${note.id}`;
 
@@ -430,6 +483,7 @@ function renderNotes() {
             cardWrapper.className = 'w-full shrink-0';
         } else {
             cardWrapper.className = currentBoardSettings.note_layout === 'grid' ? 'w-full' : 'masonry-item';
+            cardWrapper.dataset.masonryIndex = String(masonryIndex);
         }
 
         const isOwner = note.author_id === authorId;
@@ -550,7 +604,8 @@ function renderNotes() {
                 }
             }
         } else {
-            elements.notesGrid.appendChild(cardWrapper);
+            if (masonryColumns.length) appendToShortestMasonryColumn(cardWrapper, masonryColumns);
+            else elements.notesGrid.appendChild(cardWrapper);
         }
     });
 
@@ -559,6 +614,9 @@ function renderNotes() {
             const cntEl = document.getElementById(`count-${s.id}`);
             if (cntEl) cntEl.textContent = sectionCounts[s.id] || 0;
         });
+    } else if (masonryColumns.length) {
+        watchMasonryImages();
+        scheduleMasonryRebalance();
     }
 }
 
@@ -2054,6 +2112,13 @@ function bindGeneralEvents() {
     }
     const noteLayoutSelect = document.getElementById('note-layout-select');
     if (noteLayoutSelect) noteLayoutSelect.addEventListener('change', async (e) => { await saveBoardSettings({ note_layout: e.target.value }); });
+
+    window.addEventListener('resize', () => {
+        clearTimeout(masonryResizeTimer);
+        masonryResizeTimer = setTimeout(() => {
+            if (!isSectionViewEnabled && currentBoardSettings.note_layout !== 'grid') renderNotes();
+        }, 150);
+    });
 
     // 보드 배경색 버튼 클릭 이벤트 바인딩
     document.querySelectorAll('.board-bg-btn').forEach(btn => {
