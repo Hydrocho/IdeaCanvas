@@ -25,6 +25,7 @@
             title,
             description: typeof board.description === 'string' ? board.description : '',
             sort_order: Number.isFinite(board.sort_order) ? board.sort_order : 0,
+            created_at: board.created_at || null,
         };
     }
 
@@ -38,6 +39,35 @@
         const normalizedQuery = typeof query === 'string' ? query.trim().toLowerCase() : '';
         if (!normalizedQuery) return boards;
         return normalizeBoards(boards).filter(board => board.title.toLowerCase().includes(normalizedQuery));
+    }
+
+    function selectRecentBoards(boards, notes, limit = 4) {
+        const latestByBoardId = (Array.isArray(notes) ? notes : []).reduce((latest, note) => {
+            if (!note?.board_id || !note.created_at) return latest;
+            if (!latest[note.board_id] || Date.parse(note.created_at) > Date.parse(latest[note.board_id])) {
+                latest[note.board_id] = note.created_at;
+            }
+            return latest;
+        }, {});
+
+        return normalizeBoards(boards)
+            .filter(board => latestByBoardId[board.id])
+            .map(board => ({ ...board, last_note_at: latestByBoardId[board.id] }))
+            .sort((a, b) => Date.parse(b.last_note_at) - Date.parse(a.last_note_at))
+            .slice(0, Math.max(0, limit));
+    }
+
+    function summarizeBoardActivity(board, notes) {
+        const boardNotes = (Array.isArray(notes) ? notes : [])
+            .filter(note => note?.board_id === board?.id && note.created_at);
+        const lastNoteAt = boardNotes.reduce((latest, note) => (
+            !latest || Date.parse(note.created_at) > Date.parse(latest) ? note.created_at : latest
+        ), null);
+        return {
+            created_at: board?.created_at || null,
+            last_note_at: lastNoteAt,
+            note_count: boardNotes.length,
+        };
     }
 
     async function loadBoardsFromServer(client) {
@@ -102,6 +132,8 @@
         normalizeBoard,
         normalizeBoards,
         filterBoardsByQuery,
+        selectRecentBoards,
+        summarizeBoardActivity,
         loadBoardFromServer,
         loadBoardsFromServer,
         createBoardInServer,

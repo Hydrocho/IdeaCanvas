@@ -10,6 +10,7 @@ const boardSettingsApi = globalThis.IdeaCanvasBoardSettings;
 const sectionsApi = globalThis.IdeaCanvasSections;
 const authUtils = globalThis.IdeaCanvasAuth;
 const likesApi = globalThis.IdeaCanvasLikes;
+const attachmentUtils = globalThis.IdeaCanvasAttachmentUtils;
 const DEFAULT_SECTIONS = [
     { id: 'sec-1', name: sectionUtils.DEFAULT_SECTION_NAME, sort_order: 1 }
 ];
@@ -41,6 +42,7 @@ let isEraserMode = false;
 let uploadedImageBase64 = null; // 첨부용 이미지
 let sketchImageBase64 = null; // 손그림 이미지
 let parsedLinkPreview = null; // 웹링크 미리보기 객체
+let attachmentType = null;
 
 // --- 2. DOM 요소 취득 ---
 const elements = {
@@ -58,6 +60,7 @@ const elements = {
     openDrawingPadBtn: document.getElementById('open-drawing-pad-btn'),
     removeImageBtn: document.getElementById('remove-image-btn'),
     removeLinkBtn: document.getElementById('remove-link-btn'),
+    removeYoutubeBtn: document.getElementById('remove-youtube-btn'),
     removeSketchBtn: document.getElementById('remove-sketch-btn'),
 
     // Modals
@@ -72,11 +75,11 @@ const elements = {
     noteForm: document.getElementById('note-form'),
     editNoteId: document.getElementById('edit-note-id'),
     noteAuthor: document.getElementById('note-author'),
-    noteTitle: document.getElementById('note-title'),
+    noteTitle: document.getElementById('note-title-fixed'),
     noteContent: document.getElementById('note-content'),
     imageFileInput: document.getElementById('image-file-input'),
-    imageUrlInput: document.getElementById('image-url-input'),
     linkUrlInput: document.getElementById('link-url-input'),
+    youtubeUrlInput: document.getElementById('youtube-url-input'),
     searchInput: document.getElementById('search-input'),
 
     // Containers & Previews
@@ -84,11 +87,14 @@ const elements = {
     connectionWarning: document.getElementById('connection-warning'),
     imagePreviewContainer: document.getElementById('image-preview-container'),
     imagePreviewImg: document.getElementById('image-preview-img'),
+    imageDropzone: document.getElementById('image-dropzone'),
     linkPreviewBox: document.getElementById('link-preview-box'),
     linkPreviewThumbnail: document.getElementById('link-preview-thumbnail'),
     linkPreviewImgBox: document.getElementById('link-preview-img-box'),
     linkPreviewTitle: document.getElementById('link-preview-title'),
     linkPreviewDesc: document.getElementById('link-preview-desc'),
+    youtubePreviewBox: document.getElementById('youtube-preview-box'),
+    youtubePreviewThumbnail: document.getElementById('youtube-preview-thumbnail'),
     sketchThumbnailContainer: document.getElementById('sketch-thumbnail-container'),
     sketchThumbnailImg: document.getElementById('sketch-thumbnail-img'),
     submitNoteBtn: document.getElementById('submit-note-btn'),
@@ -382,7 +388,15 @@ function renderNotes() {
             if (colEl) colEl.innerHTML = '';
         });
     } else {
-        if (document.getElementById('notes-grid')) document.getElementById('notes-grid').classList.remove('hidden');
+        if (document.getElementById('notes-grid')) {
+            document.getElementById('notes-grid').classList.remove('hidden');
+            document.getElementById('notes-grid').classList.toggle('masonry-grid', currentBoardSettings.note_layout !== 'grid');
+            document.getElementById('notes-grid').classList.toggle('grid', currentBoardSettings.note_layout === 'grid');
+            document.getElementById('notes-grid').classList.toggle('grid-cols-1', currentBoardSettings.note_layout === 'grid');
+            document.getElementById('notes-grid').classList.toggle('md:grid-cols-2', currentBoardSettings.note_layout === 'grid');
+            document.getElementById('notes-grid').classList.toggle('xl:grid-cols-4', currentBoardSettings.note_layout === 'grid');
+            document.getElementById('notes-grid').classList.toggle('gap-5', currentBoardSettings.note_layout === 'grid');
+        }
         if (document.getElementById('kanban-board')) document.getElementById('kanban-board').classList.add('hidden');
         
         // 기존 동적 메모 카드 제거
@@ -406,6 +420,7 @@ function renderNotes() {
         sectionCounts[s.id] = 0;
     });
 
+    filteredNotes.sort(compareNotesByBoardSort);
     filteredNotes.forEach(note => {
         const cardWrapper = document.createElement('div');
         cardWrapper.id = `note-${note.id}`;
@@ -413,7 +428,7 @@ function renderNotes() {
         if (isKanbanMode) {
             cardWrapper.className = 'w-full shrink-0';
         } else {
-            cardWrapper.className = 'masonry-item';
+            cardWrapper.className = currentBoardSettings.note_layout === 'grid' ? 'w-full' : 'masonry-item';
         }
 
         const isOwner = note.author_id === authorId;
@@ -546,6 +561,21 @@ function renderNotes() {
     }
 }
 
+function compareNotesByBoardSort(a, b) {
+    const mode = currentBoardSettings.note_sort || 'newest';
+    const createdDifference = new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    if (mode === 'oldest') return -createdDifference;
+    if (mode === 'likes_desc') {
+        const difference = (likeCountMap[b.id] || 0) - (likeCountMap[a.id] || 0);
+        return difference || createdDifference;
+    }
+    if (mode === 'comments_desc') {
+        const difference = (commentDataMap[b.id] || []).length - (commentDataMap[a.id] || []).length;
+        return difference || createdDifference;
+    }
+    return createdDifference;
+}
+
 // --- 섹션 제어 관련 로컬 헬퍼 ---
 function resetSectionsToDefault() {
     currentSections = JSON.parse(JSON.stringify(DEFAULT_SECTIONS));
@@ -590,6 +620,10 @@ function renderBoardSettings() {
     
     isSectionViewEnabled = currentBoardSettings.sections_enabled === true;
     if (toggleSectionView) toggleSectionView.checked = isSectionViewEnabled;
+    const noteSortSelect = document.getElementById('note-sort-select');
+    if (noteSortSelect) noteSortSelect.value = currentBoardSettings.note_sort || 'newest';
+    const noteLayoutSelect = document.getElementById('note-layout-select');
+    if (noteLayoutSelect) noteLayoutSelect.value = currentBoardSettings.note_layout || 'masonry';
 
     // 보드 배경색 스타일 적용
     const mainCanvas = document.getElementById('main-canvas');
@@ -834,6 +868,7 @@ function renderSectionsUI() {
             modalSelectContainer.appendChild(btn);
         });
     }
+    requestAnimationFrame(syncKanbanScrollProxy);
 }
 
 // 섹션 추가 액션
@@ -991,7 +1026,7 @@ async function handleNoteSubmit(e) {
     const author = elements.noteAuthor.value.trim() || '익명';
     const title = elements.noteTitle.value.trim();
     const content = elements.noteContent.value.trim();
-    const hasAttachment = Boolean(uploadedImageBase64 || elements.imageUrlInput.value.trim() || sketchImageBase64 || parsedLinkPreview);
+    const hasAttachment = hasNoteAttachment();
 
     if (!canCurrentUserWrite()) {
         alert('현재 보드는 글쓰기 기능이 꺼져 있습니다.');
@@ -1021,10 +1056,10 @@ async function handleNoteSubmit(e) {
         author,
         author_id: authorId,
         author_user_id: currentUser?.id || null,
-        image_url: uploadedImageBase64 || elements.imageUrlInput.value.trim() || null,
-        drawing_data: sketchImageBase64 || null,
-        link_url: elements.linkUrlInput.value.trim() || null,
-        link_preview: parsedLinkPreview,
+        image_url: attachmentType === 'image' ? uploadedImageBase64 : null,
+        drawing_data: attachmentType === 'draw' ? sketchImageBase64 : null,
+        link_url: attachmentType === 'youtube' ? elements.youtubeUrlInput.value.trim() : (attachmentType === 'link' ? elements.linkUrlInput.value.trim() : null),
+        link_preview: attachmentType === 'link' || attachmentType === 'youtube' ? parsedLinkPreview : null,
         section: section,
         board_id: currentBoardId
     };
@@ -1164,8 +1199,6 @@ async function openEditNoteModal(id) {
             uploadedImageBase64 = note.image_url;
             elements.imagePreviewImg.src = note.image_url;
             elements.imagePreviewContainer.classList.remove('hidden');
-        } else {
-            elements.imageUrlInput.value = note.image_url;
         }
     }
     
@@ -1300,6 +1333,8 @@ async function deleteComment(cmtId, noteId) {
 // --- 7. 외부 웹 사이트 / 유튜브 링크 미리보기 파싱 기능 ---
 async function handleLinkInput(e) {
     const url = (e?.target?.value || elements.linkUrlInput.value || '').trim();
+    attachmentType = attachmentUtils.resolveDraftAttachmentType(attachmentType, 'link', url);
+    updateAttachmentToolState();
     if (!url) {
         elements.linkPreviewBox.classList.add('hidden');
         parsedLinkPreview = null;
@@ -1309,9 +1344,20 @@ async function handleLinkInput(e) {
 
     // 간단한 URL 포맷 확인
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        parsedLinkPreview = null;
+        elements.linkPreviewBox.classList.add('hidden');
         updateNoteSubmitState();
         return;
     }
+
+    if (attachmentUtils.isYoutubeUrl(url)) {
+        parsedLinkPreview = null;
+        elements.linkPreviewBox.classList.add('hidden');
+        updateNoteSubmitState();
+        return;
+    }
+    attachmentType = 'link';
+    updateAttachmentToolState();
 
     // 유튜브 동영상 체크
     const ytReg = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
@@ -1361,6 +1407,30 @@ async function handleLinkInput(e) {
     }
 }
 
+function handleYoutubeInput(e) {
+    const url = (e?.target?.value || '').trim();
+    attachmentType = attachmentUtils.resolveDraftAttachmentType(attachmentType, 'youtube', url);
+    updateAttachmentToolState();
+    const match = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([^&?/\s]+)/i);
+    if (!match) {
+        parsedLinkPreview = null;
+        elements.youtubePreviewBox.classList.add('hidden');
+        updateNoteSubmitState();
+        return;
+    }
+    parsedLinkPreview = {
+        title: '유튜브 동영상',
+        description: url,
+        image: `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`,
+        url
+    };
+    attachmentType = 'youtube';
+    updateAttachmentToolState();
+    elements.youtubePreviewThumbnail.src = parsedLinkPreview.image;
+    elements.youtubePreviewBox.classList.remove('hidden');
+    updateNoteSubmitState();
+}
+
 function renderLinkPreviewBox(preview) {
     elements.linkPreviewTitle.textContent = preview.title;
     elements.linkPreviewDesc.textContent = preview.description;
@@ -1377,12 +1447,29 @@ function renderLinkPreviewBox(preview) {
 }
 
 function hasNoteAttachment() {
-    return Boolean(
-        uploadedImageBase64 ||
-        elements.imageUrlInput?.value.trim() ||
-        sketchImageBase64 ||
-        parsedLinkPreview
-    );
+    if (attachmentType === 'image') return Boolean(uploadedImageBase64);
+    if (attachmentType === 'draw') return Boolean(sketchImageBase64);
+    if (attachmentType === 'link' || attachmentType === 'youtube') return Boolean(parsedLinkPreview);
+    return false;
+}
+
+function updateAttachmentToolState() {
+    ['image', 'link', 'youtube', 'draw'].forEach(type => {
+        const button = document.getElementById(`tool-btn-${type}`);
+        if (!button) return;
+        const locked = Boolean(attachmentType && attachmentType !== type);
+        button.disabled = locked;
+        button.setAttribute('aria-disabled', String(locked));
+        button.classList.toggle('opacity-40', locked);
+        button.classList.toggle('grayscale', locked);
+        button.classList.toggle('cursor-not-allowed', locked);
+    });
+}
+
+function clearAttachmentType(type) {
+    if (attachmentType === type) attachmentType = null;
+    updateAttachmentToolState();
+    updateNoteSubmitState();
 }
 
 function updateNoteSubmitState() {
@@ -1518,14 +1605,48 @@ function bindDrawingControls() {
 
         // Base64 추출
         sketchImageBase64 = canvas.toDataURL('image/png');
+        attachmentType = 'draw';
+        updateAttachmentToolState();
         elements.sketchThumbnailImg.src = sketchImageBase64;
         elements.sketchThumbnailContainer.classList.remove('hidden');
+        elements.openDrawingPadBtn.classList.add('hidden');
         elements.drawingModal.classList.add('hidden');
         updateNoteSubmitState();
     });
 
     elements.closeDrawingBtn.addEventListener('click', () => {
         elements.drawingModal.classList.add('hidden');
+    });
+
+}
+
+function syncKanbanScrollProxy() {
+    const board = document.getElementById('kanban-board');
+    const proxy = document.getElementById('kanban-scroll-proxy');
+    const proxyContent = document.getElementById('kanban-scroll-proxy-content');
+    if (!board || !proxy || !proxyContent) return;
+
+    const hasOverflow = isSectionViewEnabled && board.scrollWidth > board.clientWidth + 1;
+    proxy.classList.toggle('hidden', !hasOverflow);
+    if (!hasOverflow) return;
+
+    proxyContent.style.width = `${board.scrollWidth}px`;
+    proxy.scrollLeft = board.scrollLeft;
+
+    if (proxy.dataset.scrollBound === 'true') return;
+    proxy.dataset.scrollBound = 'true';
+    let syncing = false;
+    board.addEventListener('scroll', () => {
+        if (syncing) return;
+        syncing = true;
+        proxy.scrollLeft = board.scrollLeft;
+        syncing = false;
+    });
+    proxy.addEventListener('scroll', () => {
+        if (syncing) return;
+        syncing = true;
+        board.scrollLeft = proxy.scrollLeft;
+        syncing = false;
     });
 }
 
@@ -1544,14 +1665,18 @@ function resetNoteForm() {
     if (elements.noteAuthor) elements.noteAuthor.value = '익명';
     elements.noteTitle.value = '';
     elements.noteContent.value = '';
-    elements.imageUrlInput.value = '';
     elements.linkUrlInput.value = '';
+    elements.youtubeUrlInput.value = '';
     elements.imagePreviewContainer.classList.add('hidden');
+    elements.imageDropzone.classList.remove('hidden');
     elements.linkPreviewBox.classList.add('hidden');
+    elements.youtubePreviewBox.classList.add('hidden');
     elements.sketchThumbnailContainer.classList.add('hidden');
+    elements.openDrawingPadBtn.classList.remove('hidden');
     uploadedImageBase64 = null;
     sketchImageBase64 = null;
     parsedLinkPreview = null;
+    attachmentType = null;
     
     const modalTitle = document.getElementById('modal-title');
     if (modalTitle) modalTitle.textContent = '새 생각 더하기';
@@ -1583,7 +1708,7 @@ function resetNoteForm() {
     });
 
     // 첨부 패널 및 단추 상태 초기화
-    const panels = ['panel-image', 'panel-link', 'panel-draw'];
+    const panels = ['panel-image', 'panel-link', 'panel-youtube', 'panel-draw'];
     panels.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
@@ -1596,12 +1721,14 @@ function resetNoteForm() {
             el.classList.add('text-on-surface-variant');
         }
     });
+    updateAttachmentToolState();
     updateModalSectionVisibility();
     updateNoteSubmitState();
 }
 
 // 파일 선택 시 Base64 변환
 function handleImageFileSelect(e) {
+    if (!attachmentUtils.canSelectAttachment(attachmentType, 'image')) return;
     const file = e.target.files[0];
     if (!file) return;
 
@@ -1613,10 +1740,11 @@ function handleImageFileSelect(e) {
     const reader = new FileReader();
     reader.onload = (event) => {
         uploadedImageBase64 = event.target.result;
+        attachmentType = 'image';
+        updateAttachmentToolState();
         elements.imagePreviewImg.src = uploadedImageBase64;
         elements.imagePreviewContainer.classList.remove('hidden');
-        // URL 인풋 지움
-        elements.imageUrlInput.value = '';
+        elements.imageDropzone.classList.add('hidden');
         updateNoteSubmitState();
     };
     reader.readAsDataURL(file);
@@ -1628,7 +1756,7 @@ function extractFirstUrl(text) {
 }
 
 function openToolPanel(key) {
-    const panel = document.getElementById(`panel-${key === 'youtube' ? 'link' : key}`);
+    const panel = document.getElementById(`panel-${key}`);
     const button = document.getElementById(`tool-btn-${key}`);
     if (panel) panel.classList.remove('hidden');
     if (button) {
@@ -1638,11 +1766,13 @@ function openToolPanel(key) {
 }
 
 function applyDetectedUrl(url, mode = 'link') {
-    if (!url || !elements.linkUrlInput) return;
-    elements.linkUrlInput.value = url;
-    openToolPanel('link');
-    if (mode === 'youtube') openToolPanel('youtube');
-    handleLinkInput();
+    if (!url || attachmentType) return;
+    const resolvedMode = mode === 'youtube' || attachmentUtils.isYoutubeUrl(url) ? 'youtube' : 'link';
+    const input = resolvedMode === 'youtube' ? elements.youtubeUrlInput : elements.linkUrlInput;
+    input.value = url;
+    openToolPanel(resolvedMode);
+    if (resolvedMode === 'youtube') handleYoutubeInput({ target: input });
+    else handleLinkInput({ target: input });
     updateNoteSubmitState();
 }
 
@@ -1650,6 +1780,7 @@ function handleNotePaste(event) {
     const items = Array.from(event.clipboardData?.items || []);
     const imageItem = items.find(item => item.type.startsWith('image/'));
     if (imageItem) {
+        if (!attachmentUtils.canSelectAttachment(attachmentType, 'image')) return;
         const file = imageItem.getAsFile();
         if (file) {
             openToolPanel('image');
@@ -1658,9 +1789,6 @@ function handleNotePaste(event) {
         return;
     }
 
-    const text = event.clipboardData?.getData('text') || '';
-    const url = extractFirstUrl(text);
-    if (url) applyDetectedUrl(url);
 }
 
 // 드롭존 드래그 앤 드롭
@@ -1908,6 +2036,23 @@ function bindGeneralEvents() {
             }
         });
     }
+
+    const noteSortSelect = document.getElementById('note-sort-select');
+    if (noteSortSelect) {
+        noteSortSelect.addEventListener('change', async (e) => {
+            if (!canCurrentUserManageBoard()) {
+                e.target.value = currentBoardSettings.note_sort || 'newest';
+                return;
+            }
+            try {
+                await saveBoardSettings({ note_sort: e.target.value });
+            } catch (err) {
+                e.target.value = currentBoardSettings.note_sort || 'newest';
+            }
+        });
+    }
+    const noteLayoutSelect = document.getElementById('note-layout-select');
+    if (noteLayoutSelect) noteLayoutSelect.addEventListener('change', async (e) => { await saveBoardSettings({ note_layout: e.target.value }); });
 
     // 보드 배경색 버튼 클릭 이벤트 바인딩
     document.querySelectorAll('.board-bg-btn').forEach(btn => {
@@ -2166,7 +2311,7 @@ function bindGeneralEvents() {
     const toolButtons = {
         image: { btn: document.getElementById('tool-btn-image'), panel: document.getElementById('panel-image') },
         link: { btn: document.getElementById('tool-btn-link'), panel: document.getElementById('panel-link') },
-        youtube: { btn: document.getElementById('tool-btn-youtube'), panel: document.getElementById('panel-link') },
+        youtube: { btn: document.getElementById('tool-btn-youtube'), panel: document.getElementById('panel-youtube') },
         draw: { btn: document.getElementById('tool-btn-draw'), panel: document.getElementById('panel-draw') }
     };
 
@@ -2174,10 +2319,16 @@ function bindGeneralEvents() {
         const item = toolButtons[key];
         if (item.btn && item.panel) {
             item.btn.addEventListener('click', () => {
+                if (!attachmentUtils.canSelectAttachment(attachmentType, key)) return;
                 const isHidden = item.panel.classList.contains('hidden');
                 
                 // 클릭한 툴의 패널 상태 토글
                 if (isHidden) {
+                    Object.values(toolButtons).forEach(other => {
+                        other.panel?.classList.add('hidden');
+                        other.btn?.classList.remove('bg-primary/10', 'text-primary');
+                        other.btn?.classList.add('text-on-surface-variant');
+                    });
                     item.panel.classList.remove('hidden');
                     item.btn.classList.add('bg-primary/10', 'text-primary');
                     item.btn.classList.remove('text-on-surface-variant');
@@ -2185,17 +2336,10 @@ function bindGeneralEvents() {
                         const linkInput = document.getElementById('link-url-input');
                         if (linkInput) linkInput.focus();
                     } else if (key === 'youtube') {
-                        const linkInput = document.getElementById('link-url-input');
-                        if (linkInput) {
-                            linkInput.placeholder = '유튜브 링크';
-                            linkInput.focus();
-                        }
-                    } else if (key === 'image') {
-                        const imgUrlInput = document.getElementById('image-url-input');
-                        if (imgUrlInput) imgUrlInput.focus();
+                        elements.youtubeUrlInput.focus();
                     }
                 } else {
-                    if (key !== 'youtube') item.panel.classList.add('hidden');
+                    item.panel.classList.add('hidden');
                     item.btn.classList.remove('bg-primary/10', 'text-primary');
                     item.btn.classList.add('text-on-surface-variant');
                 }
@@ -2209,33 +2353,37 @@ function bindGeneralEvents() {
     elements.noteForm.addEventListener('submit', handleNoteSubmit);
     elements.imageFileInput.addEventListener('change', handleImageFileSelect);
     elements.linkUrlInput.addEventListener('input', debounce(handleLinkInput, 500));
+    elements.youtubeUrlInput.addEventListener('input', debounce(handleYoutubeInput, 300));
     elements.noteTitle.addEventListener('input', updateNoteSubmitState);
-    elements.noteContent.addEventListener('input', () => {
-        const url = extractFirstUrl(elements.noteContent.value);
-        if (url && !elements.linkUrlInput.value.trim()) applyDetectedUrl(url);
-        updateNoteSubmitState();
-    });
+    elements.noteContent.addEventListener('input', updateNoteSubmitState);
     elements.noteForm.addEventListener('paste', handleNotePaste);
-    elements.imageUrlInput.addEventListener('input', updateNoteSubmitState);
     elements.searchInput.addEventListener('input', debounce(renderNotes, 300));
 
     // 6. 첨부 삭제 버튼
     elements.removeImageBtn.addEventListener('click', () => {
         uploadedImageBase64 = null;
         elements.imagePreviewContainer.classList.add('hidden');
+        elements.imageDropzone.classList.remove('hidden');
         elements.imageFileInput.value = '';
-        updateNoteSubmitState();
+        clearAttachmentType('image');
     });
     elements.removeLinkBtn.addEventListener('click', () => {
         parsedLinkPreview = null;
         elements.linkUrlInput.value = '';
         elements.linkPreviewBox.classList.add('hidden');
-        updateNoteSubmitState();
+        clearAttachmentType('link');
+    });
+    elements.removeYoutubeBtn.addEventListener('click', () => {
+        parsedLinkPreview = null;
+        elements.youtubeUrlInput.value = '';
+        elements.youtubePreviewBox.classList.add('hidden');
+        clearAttachmentType('youtube');
     });
     elements.removeSketchBtn.addEventListener('click', () => {
         sketchImageBase64 = null;
         elements.sketchThumbnailContainer.classList.add('hidden');
-        updateNoteSubmitState();
+        elements.openDrawingPadBtn.classList.remove('hidden');
+        clearAttachmentType('draw');
     });
     // 7. 손그림 드로잉 패드 오픈
     elements.openDrawingPadBtn.addEventListener('click', () => {
@@ -2387,6 +2535,12 @@ function initBoardTitleEditor() {
 
 // --- 10. 초기화 구문 ---
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelector('.bg-error-container\\/30')?.remove();
+    const legacyTitleInput = document.getElementById('note-title');
+    if (legacyTitleInput) {
+        legacyTitleInput.disabled = true;
+        legacyTitleInput.parentElement?.classList.add('hidden');
+    }
     clearLocalSectionCache();
     clearLocalBoardSettingsCache();
     renderBoardNavigationLinks();

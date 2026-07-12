@@ -13,6 +13,8 @@
         likes_enabled: true,
         bg_color: 'default',
         sections_enabled: false,
+        note_sort: 'newest',
+        note_layout: 'masonry',
     };
 
     function resolveWriteEnabled(settings) {
@@ -80,6 +82,8 @@
             ? merged.title.trim()
             : DEFAULT_BOARD_SETTINGS.title;
 
+        const noteSort = ['newest', 'oldest', 'likes_desc', 'comments_desc'].includes(merged.note_sort) ? merged.note_sort : DEFAULT_BOARD_SETTINGS.note_sort;
+        const noteLayout = merged.note_layout === 'grid' ? 'grid' : DEFAULT_BOARD_SETTINGS.note_layout;
         const settingsJson = {
             ...jsonSettings,
             write_enabled: resolveWriteEnabled(merged),
@@ -87,6 +91,8 @@
             likes_enabled: resolveLikesEnabled(merged),
             bg_color: resolveBgColor(merged),
             sections_enabled: resolveSectionsEnabled(merged),
+            note_sort: noteSort,
+            note_layout: noteLayout,
         };
 
         return {
@@ -98,6 +104,8 @@
             likes_enabled: settingsJson.likes_enabled,
             bg_color: settingsJson.bg_color,
             sections_enabled: settingsJson.sections_enabled,
+            note_sort: settingsJson.note_sort,
+            note_layout: settingsJson.note_layout,
             settings_json: settingsJson
         };
     }

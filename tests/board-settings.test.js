@@ -35,6 +35,8 @@ test('merges a toggle patch into JSON without losing future settings', async () 
     settings_json: {
       write_enabled: true, comments_enabled: true, likes_enabled: true,
       bg_color: 'default', sections_enabled: false, future_feature: { mode: 'x' },
+      note_sort: 'newest',
+      note_layout: 'masonry',
     },
     updated_at: '2026-07-12T00:00:00.000Z',
   }]);

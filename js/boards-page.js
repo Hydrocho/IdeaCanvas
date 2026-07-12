@@ -7,6 +7,7 @@
 
     let supabaseClient = null;
     let boards = [];
+    let boardNoteActivity = [];
     let boardSettingsByBoardId = {};
     let profiles = [];
     let searchQuery = '';
@@ -17,9 +18,14 @@
 
     const elements = {
         list: document.getElementById('boards-list'),
+        recentList: document.getElementById('recent-boards-list'),
+        recentSection: document.getElementById('recent-boards-section'),
         status: document.getElementById('boards-status'),
+        publicShell: document.getElementById('public-shell'),
+        publicHeader: document.getElementById('public-dashboard-header'),
         landingPreview: document.getElementById('landing-preview'),
         workspace: document.getElementById('dashboard-workspace'),
+        sidebarUserSlot: document.getElementById('dashboard-sidebar-user-slot'),
         createButton: document.getElementById('create-board-btn'),
         searchInput: document.getElementById('board-search-input'),
         authActions: document.getElementById('dashboard-auth-actions'),
@@ -45,6 +51,7 @@
         userDisplay: document.getElementById('dashboard-user-display'),
         boardsTabButton: document.getElementById('boards-tab-btn'),
         accountsTabButton: document.getElementById('accounts-tab-btn'),
+        mobileTabButtons: Array.from(document.querySelectorAll('[data-mobile-tab]')),
         boardsPanel: document.getElementById('boards-panel'),
         accountsPanel: document.getElementById('accounts-panel'),
         pendingTeachersList: document.getElementById('pending-teachers-list'),
@@ -92,8 +99,61 @@
         `;
     }
 
+    function formatLastNoteAt(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleString('ko-KR', {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+    }
+
+    function formatBoardDate(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '정보 없음';
+        return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function renderRecentBoards() {
+        if (!elements.recentList || !elements.recentSection) return;
+        const recentBoards = boardsApi.selectRecentBoards(boards, boardNoteActivity, 4);
+        elements.recentSection.classList.toggle('hidden', !canUseDashboard());
+
+        if (!recentBoards.length) {
+            elements.recentList.innerHTML = `
+                <div class="sm:col-span-2 xl:col-span-4 rounded-xl border border-dashed border-outline-variant/70 bg-surface-container-lowest px-5 py-6 text-center">
+                    <p class="text-sm font-bold text-on-surface">아직 메모가 등록된 보드가 없습니다.</p>
+                    <p class="mt-1 text-xs text-on-surface-variant">보드에 첫 메모를 등록하면 여기에 표시됩니다.</p>
+                </div>
+            `;
+            return;
+        }
+
+        elements.recentList.innerHTML = recentBoards.map((board, index) => {
+            const settings = boardSettingsByBoardId[board.id] || boardSettingsUtils.normalizeBoardSettings({ board_id: board.id });
+            const writeLabel = settings.write_enabled ? '글쓰기 허용' : '글쓰기 중지';
+            const writeClass = settings.write_enabled ? 'bg-white/80 text-primary' : 'bg-white/70 text-on-surface-variant';
+            const recentColor = index % 2 === 0
+                ? 'bg-secondary-fixed/30 border-secondary-fixed-dim/60'
+                : 'bg-primary-fixed/30 border-primary-fixed-dim/60';
+            return `
+                <article class="${recentColor} rounded-xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                    <div class="flex items-start justify-between gap-3">
+                        <h3 class="min-w-0 flex-1 truncate text-sm font-extrabold text-on-surface" title="${escapeHtml(board.title)}">${escapeHtml(board.title)}</h3>
+                        <span class="${writeClass} shrink-0 rounded-full px-2 py-1 text-[10px] font-bold">${writeLabel}</span>
+                    </div>
+                    <p class="mt-3 text-xs text-on-surface-variant">마지막 메모 ${escapeHtml(formatLastNoteAt(board.last_note_at))}</p>
+                    <a href="board.html?board_id=${encodeURIComponent(board.id)}" class="mt-4 inline-flex items-center gap-1 text-xs font-extrabold text-primary hover:opacity-75">
+                        보드 열기 <span class="material-symbols-outlined text-base">arrow_forward</span>
+                    </a>
+                </article>
+            `;
+        }).join('');
+    }
+
     function renderBoards() {
         if (!elements.list || !canUseDashboard()) return;
+
+        renderRecentBoards();
 
         const visibleBoards = boardsApi.filterBoardsByQuery(boards, searchQuery);
 
@@ -103,21 +163,40 @@
         }
 
         elements.list.innerHTML = '';
-        visibleBoards.forEach((board) => {
+        visibleBoards.forEach((board, index) => {
             const boardSettings = boardSettingsByBoardId[board.id] || boardSettingsUtils.normalizeBoardSettings({ board_id: board.id, title: board.title });
+            const activity = boardsApi.summarizeBoardActivity(board, boardNoteActivity);
             const writeChecked = boardSettings.write_enabled ? 'checked' : '';
+            const accentClass = ['bg-secondary-fixed-dim', 'bg-primary-fixed-dim', 'bg-secondary-container'][index % 3];
             const card = document.createElement('article');
             card.className = 'group overflow-hidden rounded-lg bg-surface-container-lowest border border-outline-variant/60 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md';
             card.innerHTML = `
-                <div class="h-1 bg-primary"></div>
-                <div class="p-5 flex min-h-48 flex-col gap-5">
+                <div class="h-1 ${accentClass}"></div>
+                <div class="p-5 flex h-full min-h-0 flex-col gap-5">
                     <div>
                         <h3 data-action="edit-board-title" data-board-id="${escapeHtml(board.id)}" class="board-title-text w-full cursor-text text-xl font-extrabold text-on-surface px-0 py-1" title="더블 클릭해서 이름 변경">${escapeHtml(board.title)}</h3>
                         <input data-board-id="${escapeHtml(board.id)}" class="board-title-input hidden w-full text-xl font-extrabold bg-transparent border-b border-primary focus:ring-0 outline-none px-0 py-1" value="${escapeHtml(board.title)}" aria-label="보드 이름"/>
                         <p class="text-xs text-on-surface-variant mt-2">보드 ID: ${escapeHtml(board.id)}</p>
+                        <div class="mt-5 grid grid-cols-3 gap-2">
+                            <div class="rounded-lg bg-secondary-fixed/35 px-3 py-3">
+                                <span class="material-symbols-outlined text-base text-secondary">calendar_add_on</span>
+                                <p class="mt-1 text-[10px] font-bold text-on-surface-variant">최초 생성</p>
+                                <p class="mt-0.5 text-xs font-extrabold text-on-surface">${escapeHtml(formatBoardDate(activity.created_at))}</p>
+                            </div>
+                            <div class="rounded-lg bg-primary-fixed/35 px-3 py-3">
+                                <span class="material-symbols-outlined text-base text-primary">edit_calendar</span>
+                                <p class="mt-1 text-[10px] font-bold text-on-surface-variant">마지막 기록</p>
+                                <p class="mt-0.5 text-xs font-extrabold text-on-surface">${activity.last_note_at ? escapeHtml(formatBoardDate(activity.last_note_at)) : '기록 없음'}</p>
+                            </div>
+                            <div class="rounded-lg bg-secondary-container/35 px-3 py-3">
+                                <span class="material-symbols-outlined text-base text-secondary">note_stack</span>
+                                <p class="mt-1 text-[10px] font-bold text-on-surface-variant">전체 메모</p>
+                                <p class="mt-0.5 text-xs font-extrabold text-on-surface">${activity.note_count.toLocaleString('ko-KR')}개</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="mt-auto flex flex-wrap items-center gap-2">
-                        <a href="board.html?board_id=${encodeURIComponent(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90">
+                        <a href="board.html?board_id=${encodeURIComponent(board.id)}" class="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-dashboard-action text-white text-xs font-bold hover:opacity-90">
                             <span class="material-symbols-outlined text-base">open_in_new</span>
                             열기
                         </a>
@@ -146,8 +225,11 @@
         const panelMode = authUtils.resolveAuthPanelMode(authPanelMode, currentUser);
         authPanelMode = panelMode === 'logged_in' ? 'closed' : panelMode;
 
+        elements.publicShell?.classList.toggle('hidden', dashboardAllowed);
+        elements.publicHeader?.classList.toggle('hidden', dashboardAllowed);
         elements.landingPreview?.classList.toggle('hidden', dashboardAllowed);
         elements.workspace?.classList.toggle('hidden', !dashboardAllowed);
+        elements.workspace?.classList.toggle('flex', dashboardAllowed);
         elements.authActions?.classList.toggle('hidden', panelMode === 'logged_in');
         elements.authLoggedIn?.classList.toggle('hidden', panelMode !== 'logged_in');
         elements.authLoggedIn?.classList.toggle('flex', panelMode === 'logged_in');
@@ -164,15 +246,21 @@
 
         if (!dashboardAllowed) {
             boards = [];
+            boardNoteActivity = [];
             boardSettingsByBoardId = {};
             profiles = [];
             if (elements.list) elements.list.innerHTML = '';
+            if (elements.recentList) elements.recentList.innerHTML = '';
             setStatus('');
             showTab('boards');
         }
 
-        elements.accountsTabButton?.classList.toggle('hidden', !authUtils.isMaster(currentProfile));
-        if (!authUtils.isMaster(currentProfile)) showTab('boards');
+        const isMaster = authUtils.isMaster(currentProfile);
+        elements.accountsTabButton?.classList.toggle('hidden', !isMaster);
+        elements.mobileTabButtons
+            .filter(button => button.dataset.mobileTab === 'accounts')
+            .forEach(button => button.classList.toggle('hidden', !isMaster));
+        if (!isMaster) showTab('boards');
         updateCreateButtonState();
         if (dashboardAllowed) renderBoards();
         renderAccounts();
@@ -226,12 +314,14 @@
     async function loadBoards() {
         if (!canUseDashboard()) {
             boards = [];
+            boardNoteActivity = [];
             boardSettingsByBoardId = {};
             renderAuthState();
             return;
         }
         if (!supabaseClient) {
             boards = [];
+            boardNoteActivity = [];
             boardSettingsByBoardId = {};
             setConnected(false);
             renderBoards();
@@ -239,6 +329,16 @@
         }
 
         boards = await boardsApi.loadBoardsFromServer(supabaseClient);
+        const { data: noteActivity, error: noteActivityError } = await supabaseClient
+            .from('notes')
+            .select('board_id, created_at')
+            .order('created_at', { ascending: false });
+        if (noteActivityError) {
+            console.warn('Recent board activity load failed:', noteActivityError.message);
+            boardNoteActivity = [];
+        } else {
+            boardNoteActivity = noteActivity || [];
+        }
         boardSettingsByBoardId = await boardSettingsApi.loadBoardSettingsByBoardIdsFromServer(
             supabaseClient,
             boards.map(board => board.id)
@@ -545,6 +645,12 @@
         elements.boardsTabButton?.classList.toggle('text-white', !isAccounts);
         elements.accountsTabButton?.classList.toggle('bg-primary', isAccounts);
         elements.accountsTabButton?.classList.toggle('text-white', isAccounts);
+        elements.mobileTabButtons.forEach(button => {
+            const isActive = button.dataset.mobileTab === (isAccounts ? 'accounts' : 'boards');
+            button.classList.toggle('bg-primary', isActive);
+            button.classList.toggle('text-white', isActive);
+            button.classList.toggle('text-on-surface-variant', !isActive);
+        });
         if (isAccounts) loadAccounts().catch(error => console.error('Load accounts failed:', error));
     }
 
@@ -657,7 +763,17 @@
         if (elements.logoutButton) elements.logoutButton.addEventListener('click', () => handleLogout().catch(error => alert(error.message)));
         if (elements.boardsTabButton) elements.boardsTabButton.addEventListener('click', () => showTab('boards'));
         if (elements.accountsTabButton) elements.accountsTabButton.addEventListener('click', () => showTab('accounts'));
+        elements.mobileTabButtons.forEach(button => {
+            button.addEventListener('click', () => showTab(button.dataset.mobileTab));
+        });
         if (elements.accountsPanel) elements.accountsPanel.addEventListener('click', handleListClick);
+
+        if (elements.sidebarUserSlot && elements.authLoggedIn) {
+            elements.sidebarUserSlot.appendChild(elements.authLoggedIn);
+            elements.authLoggedIn.classList.add('w-full', 'flex-col', 'items-stretch');
+            elements.userDisplay?.classList.add('max-w-full');
+            elements.logoutButton?.classList.add('mt-2', 'w-full', 'bg-surface-container-lowest');
+        }
 
         await initAuth();
         if (canUseDashboard()) {

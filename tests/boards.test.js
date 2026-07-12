@@ -7,6 +7,8 @@ const {
   normalizeBoard,
   normalizeBoards,
   filterBoardsByQuery,
+  selectRecentBoards,
+  summarizeBoardActivity,
   loadBoardFromServer,
   loadBoardsFromServer,
   createBoardInServer,
@@ -71,8 +73,24 @@ test('normalizes board data', () => {
     title: 'Sprint',
     description: '',
     sort_order: 0,
+    created_at: null,
   });
   assert.equal(normalizeBoard({ id: '2', title: ' ' }).title, DEFAULT_BOARD_TITLE);
+});
+
+test('summarizes a board creation date, latest note date, and note count', () => {
+  const board = { id: 'a', title: 'A', created_at: '2026-06-01T00:00:00Z' };
+  const notes = [
+    { board_id: 'a', created_at: '2026-07-01T00:00:00Z' },
+    { board_id: 'b', created_at: '2026-07-03T00:00:00Z' },
+    { board_id: 'a', created_at: '2026-07-05T00:00:00Z' },
+  ];
+
+  assert.deepEqual(summarizeBoardActivity(board, notes), {
+    created_at: '2026-06-01T00:00:00Z',
+    last_note_at: '2026-07-05T00:00:00Z',
+    note_count: 2,
+  });
 });
 
 test('normalizes board arrays and filters missing ids', () => {
@@ -91,6 +109,26 @@ test('filters boards by title query without mutating the list', () => {
   assert.deepEqual(result.map(board => board.id), ['2']);
   assert.equal(source.length, 3);
   assert.deepEqual(filterBoardsByQuery(source, ''), source);
+});
+
+test('selects four boards ordered by their latest note', () => {
+  const boards = [
+    { id: 'a', title: 'A' }, { id: 'b', title: 'B' }, { id: 'c', title: 'C' },
+    { id: 'd', title: 'D' }, { id: 'e', title: 'E' },
+  ];
+  const notes = [
+    { board_id: 'a', created_at: '2026-07-01T00:00:00Z' },
+    { board_id: 'b', created_at: '2026-07-05T00:00:00Z' },
+    { board_id: 'a', created_at: '2026-07-06T00:00:00Z' },
+    { board_id: 'c', created_at: '2026-07-04T00:00:00Z' },
+    { board_id: 'd', created_at: '2026-07-03T00:00:00Z' },
+    { board_id: 'e', created_at: '2026-07-02T00:00:00Z' },
+  ];
+
+  const recent = selectRecentBoards(boards, notes, 4);
+
+  assert.deepEqual(recent.map(board => board.id), ['a', 'b', 'c', 'd']);
+  assert.equal(recent[0].last_note_at, '2026-07-06T00:00:00Z');
 });
 
 test('loads boards ordered by sort_order', async () => {
