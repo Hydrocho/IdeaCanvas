@@ -16,6 +16,45 @@
     let currentProfile = null;
     let authPanelMode = 'closed';
 
+    const cardThemes = [
+        {
+            bg: 'bg-amber-50/50',
+            border: 'border-amber-200/50',
+            hoverBorder: 'hover:border-amber-400',
+            badge: 'bg-amber-100 text-amber-800',
+            accent: 'bg-amber-500',
+            statsBg: 'bg-amber-50/80',
+            iconText: 'text-amber-600',
+        },
+        {
+            bg: 'bg-emerald-50/50',
+            border: 'border-emerald-200/50',
+            hoverBorder: 'hover:border-emerald-400',
+            badge: 'bg-emerald-100 text-emerald-800',
+            accent: 'bg-emerald-500',
+            statsBg: 'bg-emerald-50/80',
+            iconText: 'text-emerald-600',
+        },
+        {
+            bg: 'bg-blue-50/50',
+            border: 'border-blue-200/50',
+            hoverBorder: 'hover:border-blue-400',
+            badge: 'bg-blue-100 text-blue-800',
+            accent: 'bg-blue-500',
+            statsBg: 'bg-blue-50/80',
+            iconText: 'text-blue-600',
+        },
+        {
+            bg: 'bg-purple-50/50',
+            border: 'border-purple-200/50',
+            hoverBorder: 'hover:border-purple-400',
+            badge: 'bg-purple-100 text-purple-800',
+            accent: 'bg-purple-500',
+            statsBg: 'bg-purple-50/80',
+            iconText: 'text-purple-600',
+        }
+    ];
+
     const elements = {
         list: document.getElementById('boards-list'),
         recentList: document.getElementById('recent-boards-list'),
@@ -130,11 +169,10 @@
 
         elements.recentList.innerHTML = recentBoards.map((board, index) => {
             const settings = boardSettingsByBoardId[board.id] || boardSettingsUtils.normalizeBoardSettings({ board_id: board.id });
+            const theme = cardThemes[index % 4];
             const writeLabel = settings.write_enabled ? '글쓰기 허용' : '글쓰기 중지';
-            const writeClass = settings.write_enabled ? 'bg-white/80 text-primary' : 'bg-white/70 text-on-surface-variant';
-            const recentColor = index % 2 === 0
-                ? 'bg-secondary-fixed/30 border-secondary-fixed-dim/60'
-                : 'bg-primary-fixed/30 border-primary-fixed-dim/60';
+            const writeClass = settings.write_enabled ? theme.badge : 'bg-surface-container-high text-on-surface-variant';
+            const recentColor = `${theme.bg} ${theme.border} ${theme.hoverBorder}`;
             return `
                 <article class="${recentColor} rounded-xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                     <div class="flex items-start justify-between gap-3">
@@ -167,29 +205,29 @@
             const boardSettings = boardSettingsByBoardId[board.id] || boardSettingsUtils.normalizeBoardSettings({ board_id: board.id, title: board.title });
             const activity = boardsApi.summarizeBoardActivity(board, boardNoteActivity);
             const writeChecked = boardSettings.write_enabled ? 'checked' : '';
-            const accentClass = ['bg-secondary-fixed-dim', 'bg-primary-fixed-dim', 'bg-secondary-container'][index % 3];
+            const theme = cardThemes[index % 4];
             const card = document.createElement('article');
             card.className = 'group overflow-hidden rounded-lg bg-surface-container-lowest border border-outline-variant/60 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md';
             card.innerHTML = `
-                <div class="h-1 ${accentClass}"></div>
+                <div class="h-1 ${theme.accent}"></div>
                 <div class="p-5 flex h-full min-h-0 flex-col gap-5">
                     <div>
                         <h3 data-action="edit-board-title" data-board-id="${escapeHtml(board.id)}" class="board-title-text w-full cursor-text text-xl font-extrabold text-on-surface px-0 py-1" title="더블 클릭해서 이름 변경">${escapeHtml(board.title)}</h3>
                         <input data-board-id="${escapeHtml(board.id)}" class="board-title-input hidden w-full text-xl font-extrabold bg-transparent border-b border-primary focus:ring-0 outline-none px-0 py-1" value="${escapeHtml(board.title)}" aria-label="보드 이름"/>
                         <p class="text-xs text-on-surface-variant mt-2">보드 ID: ${escapeHtml(board.id)}</p>
                         <div class="mt-5 grid grid-cols-3 gap-2">
-                            <div class="rounded-lg bg-secondary-fixed/35 px-3 py-3">
-                                <span class="material-symbols-outlined text-base text-secondary">calendar_add_on</span>
+                            <div class="rounded-lg ${theme.statsBg} px-3 py-3">
+                                <span class="material-symbols-outlined text-base ${theme.iconText}">calendar_add_on</span>
                                 <p class="mt-1 text-[10px] font-bold text-on-surface-variant">최초 생성</p>
                                 <p class="mt-0.5 text-xs font-extrabold text-on-surface">${escapeHtml(formatBoardDate(activity.created_at))}</p>
                             </div>
-                            <div class="rounded-lg bg-primary-fixed/35 px-3 py-3">
-                                <span class="material-symbols-outlined text-base text-primary">edit_calendar</span>
+                            <div class="rounded-lg ${theme.statsBg} px-3 py-3">
+                                <span class="material-symbols-outlined text-base ${theme.iconText}">edit_calendar</span>
                                 <p class="mt-1 text-[10px] font-bold text-on-surface-variant">마지막 기록</p>
                                 <p class="mt-0.5 text-xs font-extrabold text-on-surface">${activity.last_note_at ? escapeHtml(formatBoardDate(activity.last_note_at)) : '기록 없음'}</p>
                             </div>
-                            <div class="rounded-lg bg-secondary-container/35 px-3 py-3">
-                                <span class="material-symbols-outlined text-base text-secondary">note_stack</span>
+                            <div class="rounded-lg ${theme.statsBg} px-3 py-3">
+                                <span class="material-symbols-outlined text-base ${theme.iconText}">note_stack</span>
                                 <p class="mt-1 text-[10px] font-bold text-on-surface-variant">전체 메모</p>
                                 <p class="mt-0.5 text-xs font-extrabold text-on-surface">${activity.note_count.toLocaleString('ko-KR')}개</p>
                             </div>
