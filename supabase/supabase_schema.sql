@@ -556,7 +556,7 @@ ON public.likes FOR SELECT
 TO anon, authenticated
 USING (true);
 
-DROP POLICY IF EXISTS "Anyone can like" ON public.likes;
+DROP POLICY IF EXISTS "Guests can like" ON public.likes;
 CREATE POLICY "Guests can like"
 ON public.likes FOR INSERT
 TO anon
@@ -568,7 +568,7 @@ ON public.likes FOR INSERT
 TO authenticated
 WITH CHECK (NOT (SELECT private.current_profile_is_rejected()));
 
-DROP POLICY IF EXISTS "Users can remove own likes" ON public.likes;
+DROP POLICY IF EXISTS "Guests can remove likes" ON public.likes;
 CREATE POLICY "Guests can remove likes"
 ON public.likes FOR DELETE
 TO anon
