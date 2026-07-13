@@ -394,6 +394,46 @@
         </div>
     </div>
 
+    <!-- 워드 클라우드 분석 모달 -->
+    <div id="wordcloud-modal" class="fixed inset-0 z-50 flex items-center justify-center px-4 hidden">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/45 backdrop-blur-sm wordcloud-modal-close-trigger"></div>
+        <!-- Modal Content -->
+        <div class="relative w-full max-w-lg bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden border border-outline-variant/15 flex flex-col animate-modal max-h-[90vh]">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between px-5 py-4 border-b border-outline-variant/10">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">cloud</span>
+                    <span class="font-extrabold text-on-surface text-base">보드 텍스트 워드 클라우드</span>
+                </div>
+                <button type="button" class="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface-container-low hover:text-primary transition-all text-on-surface-variant wordcloud-modal-close-btn" title="닫기">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+            <!-- Modal Body -->
+            <div class="p-5 flex flex-col items-center gap-4 overflow-y-auto min-h-[350px]">
+                <!-- Canvas Container -->
+                <div id="wordcloud-canvas-container" class="w-full h-64 bg-slate-50 rounded-xl relative flex items-center justify-center border border-outline-variant/20 overflow-hidden">
+                    <canvas id="wordcloud-canvas" class="w-full h-full"></canvas>
+                    <div id="wordcloud-empty-msg" class="absolute inset-0 flex items-center justify-center text-xs text-on-surface-variant hidden">
+                        분석할 텍스트가 없습니다. 생각을 적거나 댓글을 입력해 주세요.
+                    </div>
+                </div>
+                <!-- Word list/stats -->
+                <div class="w-full space-y-2">
+                    <p class="text-xs font-bold text-on-surface-variant">가장 빈도가 높은 단어 TOP 5</p>
+                    <div id="wordcloud-stats-list" class="grid grid-cols-5 gap-2">
+                        <!-- Stat items loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+            <!-- Modal Footer -->
+            <div class="px-5 py-4 border-t border-outline-variant/10 flex">
+                <button type="button" class="flex-1 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-on-surface-variant font-bold transition-all active:scale-95 text-xs wordcloud-modal-close-btn">닫기</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 2. 새 메모 작성 모달 -->
     <div id="note-modal" class="fixed inset-0 z-50 flex items-center justify-center px-4 hidden">
         <!-- Backdrop -->
@@ -724,7 +764,16 @@
                         </button>
                     </div>
                 </div>
+                <!-- 텍스트 분석 (워드 클라우드) -->
+                <div class="space-y-2 pt-4 border-t border-outline-variant/10">
+                    <p class="font-semibold text-xs text-on-surface">텍스트 분석</p>
+                    <button type="button" id="open-wordcloud-btn" class="w-full bg-primary hover:bg-primary/95 text-white py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/10 active:scale-95">
+                        <span class="material-symbols-outlined text-base">cloud</span>
+                        <span>워드 클라우드 분석</span>
+                    </button>
+                </div>
             </div>
+        </div>
         </div>
     </div>
 
@@ -767,6 +816,7 @@
     <script src="js/drawing-utils.js"></script>
     <script src="js/masonry-utils.js"></script>
     <script src="js/note-visibility-utils.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
     <script src="js/app.js?v=1.0.8"></script>
 </body>
 </html>

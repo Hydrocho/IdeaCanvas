@@ -1409,6 +1409,145 @@ async function submitCommentFromModal() {
     }
 }
 
+// 워드 클라우드 텍스트 추출 및 빈도 계산
+function extractWordFrequencies() {
+    let combinedText = '';
+
+    // Collect note contents (excluding titles and authors)
+    if (Array.isArray(currentNotes)) {
+        currentNotes.forEach(note => {
+            if (note.content) {
+                combinedText += ' ' + note.content;
+            }
+        });
+    }
+
+    // Collect comment contents (excluding authors)
+    for (const noteId in commentDataMap) {
+        const comments = commentDataMap[noteId];
+        if (Array.isArray(comments)) {
+            comments.forEach(c => {
+                if (c.content) {
+                    combinedText += ' ' + c.content;
+                }
+            });
+        }
+    }
+
+    if (!combinedText.trim()) return [];
+
+    // Clean text: remove special characters/emojis/punctuation (keep Korean, English, numbers)
+    const cleanedText = combinedText.replace(/[^\uAC00-\uD7A3a-zA-Z0-9\s]/g, ' ');
+    const rawWords = cleanedText.split(/\s+/);
+    const frequencies = {};
+
+    // Suffix trimmer postpositions
+    const postpositions = ['은', '는', '이', '가', '을', '를', '에', '의', '로', '와', '과', '도', '만', '한', '에서', '에게', '으로', '하고', '이며', '이다', '이었다', '였습니다'];
+
+    rawWords.forEach(w => {
+        let word = w.trim();
+        if (!word || word.length <= 1) return;
+
+        // Strip common Korean suffix postpositions to find base noun
+        for (const suffix of postpositions) {
+            if (word.endsWith(suffix) && word.length > suffix.length) {
+                const base = word.slice(0, -suffix.length);
+                if (base.length >= 2) {
+                    word = base;
+                    break;
+                }
+            }
+        }
+
+        // Final check on length
+        if (word.length >= 2) {
+            frequencies[word] = (frequencies[word] || 0) + 1;
+        }
+    });
+
+    return Object.entries(frequencies)
+        .sort((a, b) => b[1] - a[1]);
+}
+
+// 워드 클라우드 모달 열기
+function openWordCloudModal() {
+    const modal = document.getElementById('wordcloud-modal');
+    if (!modal) return;
+
+    modal.classList.remove('hidden');
+    renderWordCloud();
+}
+
+// 워드 클라우드 모달 닫기
+function closeWordCloudModal() {
+    const modal = document.getElementById('wordcloud-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+// 워드 클라우드 캔버스 및 텍스트 렌더링
+function renderWordCloud() {
+    const canvas = document.getElementById('wordcloud-canvas');
+    const container = document.getElementById('wordcloud-canvas-container');
+    const emptyMsg = document.getElementById('wordcloud-empty-msg');
+    const statsList = document.getElementById('wordcloud-stats-list');
+
+    if (!canvas || !container || !emptyMsg || !statsList) return;
+
+    const freqList = extractWordFrequencies();
+
+    statsList.innerHTML = '';
+
+    if (freqList.length === 0) {
+        canvas.classList.add('hidden');
+        emptyMsg.classList.remove('hidden');
+        return;
+    }
+
+    canvas.classList.remove('hidden');
+    emptyMsg.classList.add('hidden');
+
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+
+    const top5 = freqList.slice(0, 5);
+    top5.forEach(([word, count]) => {
+        const item = document.createElement('div');
+        item.className = 'bg-surface-container-low p-2 rounded-xl text-center border border-outline-variant/10 shadow-sm';
+        item.innerHTML = `
+            <p class="font-bold text-xs text-primary truncate" title="${escapeHtml(word)}">${escapeHtml(word)}</p>
+            <p class="text-[10px] text-on-surface-variant font-semibold mt-0.5">${count}회</p>
+        `;
+        statsList.appendChild(item);
+    });
+
+    const maxFreq = freqList[0][1];
+    const wordList = freqList.map(([word, freq]) => {
+        const weight = Math.max(12, Math.min(48, (freq / maxFreq) * 36 + 10));
+        return [word, weight];
+    });
+
+    if (typeof WordCloud !== 'undefined') {
+        WordCloud(canvas, {
+            list: wordList,
+            gridSize: 8,
+            weightFactor: 1,
+            fontFamily: 'Outfit, Inter, system-ui, sans-serif',
+            color: function () {
+                const hues = [190, 200, 210, 220];
+                const hue = hues[Math.floor(Math.random() * hues.length)];
+                const saturation = Math.floor(Math.random() * 20) + 70;
+                const lightness = Math.floor(Math.random() * 20) + 40;
+                return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+            },
+            rotateRatio: 0.3,
+            rotationSteps: 2,
+            backgroundColor: '#fafcff'
+        });
+    }
+}
+
 // 좋아요 토글
 async function toggleLike(noteId) {
     if (!supabaseClient) return;
@@ -2139,6 +2278,16 @@ function bindGeneralEvents() {
             }
         });
     }
+
+    // 워드 클라우드 모달 이벤트 바인딩
+    const openWordCloudBtn = document.getElementById('open-wordcloud-btn');
+    if (openWordCloudBtn) {
+        openWordCloudBtn.addEventListener('click', openWordCloudModal);
+    }
+
+    document.querySelectorAll('.wordcloud-modal-close-trigger, .wordcloud-modal-close-btn').forEach(btn => {
+        btn.addEventListener('click', closeWordCloudModal);
+    });
 
 
 
