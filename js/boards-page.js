@@ -490,7 +490,7 @@
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-outline-variant/50 bg-white px-4 py-3">
                 <div>
                     <p class="font-bold text-on-surface">${escapeHtml(profile.display_name || '이름 없음')}</p>
-                    <p class="text-xs text-on-surface-variant">${escapeHtml(profile.email || '이메일 없음')} ${masterBadge}</p>
+                    <p class="text-xs text-on-surface-variant">${escapeHtml(profile.email || profile.user_id)} ${masterBadge}</p>
                 </div>
                 <div class="flex gap-2">${approveButton}${rejectButton}${masterButton}</div>
             </div>

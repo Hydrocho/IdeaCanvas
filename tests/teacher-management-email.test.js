@@ -28,6 +28,6 @@ test('js/boards-page.js auto-syncs email inside loadCurrentProfile()', () => {
 });
 
 test('js/boards-page.js renders profile email inside renderProfileRow()', () => {
-  // renderProfileRow renders email instead of user_id
-  assert.match(boardsPageJs, /escapeHtml\(profile\.email\s*\|\|\s*'이메일 없음'\)/);
+  // renderProfileRow renders email with fallback to user_id
+  assert.match(boardsPageJs, /escapeHtml\(profile\.email\s*\|\|\s*profile\.user_id\)/);
 });
