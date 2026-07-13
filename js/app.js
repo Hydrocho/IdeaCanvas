@@ -504,7 +504,7 @@ function renderNotes() {
         const commentsList = commentDataMap[note.id] || [];
         let commentsHtml = '';
         commentsList.forEach(c => {
-            const commentOwner = c.author_id === authorId;
+            const commentOwner = c.author_id === authorId || canCurrentUserManageBoard();
             commentsHtml += `
                 <div class="flex items-start justify-between gap-2 text-xs py-1 border-b border-outline-variant/10 last:border-b-0 group/comment">
                     <div class="min-w-0 flex-1">
@@ -1359,10 +1359,11 @@ async function submitCommentFromModal() {
 
     let cmtAuthor = authorInput.value.trim();
     if (!cmtAuthor) {
-        cmtAuthor = '익명';
+        alert('작성자 이름을 입력해 주세요.');
+        return;
     }
 
-    if (!currentUser && cmtAuthor !== '익명') {
+    if (!currentUser) {
         localStorage.setItem('ideacanvas_comment_author', cmtAuthor);
     }
 
@@ -1420,68 +1421,23 @@ async function toggleLike(noteId) {
     }
 }
 
-// 댓글 입력창 엔터 감지
-function handleCommentSubmit(event, noteId) {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        submitComment(noteId);
-    }
-}
-
-// 댓글 제출
-async function submitComment(noteId) {
-    if (!supabaseClient) return;
-
-    const input = document.getElementById(`cmt-input-${noteId}`);
-    const content = input.value.trim();
-    if (!content) return;
-
-    if (!canCurrentUserWrite()) {
-        alert('현재 보드는 글쓰기 기능이 꺼져 있습니다.');
-        return;
-    }
-
-    // 간단한 닉네임 프롬프트 제공 (한번 설정되면 유지되도록 브라우저 저장)
-    let cmtAuthor = localStorage.getItem('ideacanvas_comment_author');
-    if (!cmtAuthor) {
-        cmtAuthor = prompt('\ub313\uae00 \uc791\uc131\uc790 \uc774\ub984\uc744 \uc785\ub825\ud558\uc138\uc694:', '') || '';
-        cmtAuthor = cmtAuthor.trim();
-        if (!cmtAuthor) {
-            alert('\uc791\uc131\uc790 \uc774\ub984\uc744 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
-            return;
-        }
-        localStorage.setItem('ideacanvas_comment_author', cmtAuthor);
-    }
-
-    try {
-        const { error } = await supabaseClient
-            .from('comments')
-            .insert([{
-                note_id: noteId,
-                author: cmtAuthor,
-                author_id: authorId,
-                author_user_id: currentUser?.id || null,
-                content: content
-            }]);
-
-        if (error) throw error;
-        input.value = '';
-    } catch (e) {
-        console.error("Submit comment failed:", e);
-    }
-}
-
 // 댓글 삭제
 async function deleteComment(cmtId, noteId) {
     if (!confirm('정말 이 댓글을 삭제하시겠습니까?')) return;
     if (!supabaseClient) return;
 
     try {
-        const { error } = await supabaseClient
+        let query = supabaseClient
             .from('comments')
             .delete()
-            .eq('id', cmtId)
-            .eq('author_id', authorId); // 본인 여부 확인
+            .eq('id', cmtId);
+
+        // 교사가 아닌 일반 학생인 경우 본인이 작성한 댓글만 삭제할 수 있도록 조건 추가
+        if (!canCurrentUserManageBoard()) {
+            query = query.eq('author_id', authorId);
+        }
+
+        const { error } = await query;
 
         if (error) throw error;
     } catch (e) {

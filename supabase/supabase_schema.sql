@@ -550,6 +550,12 @@ ON public.comments FOR DELETE
 TO authenticated
 USING (NOT (SELECT private.current_profile_is_rejected()) AND (author_user_id = (SELECT auth.uid()) OR (SELECT private.current_profile_is_teacher_or_master())));
 
+DROP POLICY IF EXISTS "Guests can delete comments" ON public.comments;
+CREATE POLICY "Guests can delete comments"
+ON public.comments FOR DELETE
+TO anon
+USING (true);
+
 DROP POLICY IF EXISTS "Likes readable" ON public.likes;
 CREATE POLICY "Likes readable"
 ON public.likes FOR SELECT
