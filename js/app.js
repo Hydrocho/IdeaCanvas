@@ -509,7 +509,7 @@ function renderNotes() {
             commentsHtml += `
                 <div class="flex items-start justify-between gap-2 text-xs py-1 border-b border-outline-variant/10 last:border-b-0 group/comment">
                     <div class="min-w-0 flex-1">
-                        <span class="font-bold text-on-surface text-[11px]">${escapeHtml(c.author)} <span class="text-[9px] text-on-surface-variant/70 font-normal">${c.client_ip ? `(ip: ${c.client_ip})` : ''}</span>:</span>
+                        <span class="font-bold text-on-surface text-[11px]">${escapeHtml(c.author)} <span class="text-[9px] text-on-surface-variant/70 font-normal">${c.client_ip ? `(${c.client_ip})` : ''}</span>:</span>
                         <span class="text-on-surface-variant break-all">${escapeHtml(c.content)}</span>
                     </div>
                     ${commentOwner ? `
@@ -565,7 +565,7 @@ function renderNotes() {
                 <!-- 메타데이터 & 좋아요 리액션 -->
                 <div class="mt-4 flex items-center justify-between border-t border-outline-variant/20 pt-3">
                     <div class="flex items-center gap-1">
-                        <span class="text-[10px] text-on-surface-variant">${escapeHtml(note.author || '익명')} ${note.client_ip ? `(ip: ${note.client_ip})` : ''} • ${formatDate(note.created_at)}</span>
+                        <span class="text-[10px] text-on-surface-variant">${(note.author && note.author !== '익명') ? escapeHtml(note.author) + ' ' : ''}${note.client_ip ? `(${note.client_ip})` : ''}${((note.author && note.author !== '익명') || note.client_ip) ? ' • ' : ''}${formatDate(note.created_at)}</span>
                     </div>
                     
                     ${currentBoardSettings.likes_enabled !== false ? `

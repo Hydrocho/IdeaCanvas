@@ -23,6 +23,6 @@ test('js/app.js passes client_ip on new notes and comments inserts', () => {
 });
 
 test('js/app.js renders client_ip on notes cards and comments metadata', () => {
-  assert.match(appJs, /\$\{note\.client_ip \? `\(ip: \$\{note\.client_ip\}\)` : ''\}/);
-  assert.match(appJs, /\$\{c\.client_ip \? `\(ip: \$\{c\.client_ip\}\)` : ''\}/);
+  assert.match(appJs, /\$\{note\.client_ip \? `\(\$\{note\.client_ip\}\)` : ''\}/);
+  assert.match(appJs, /\$\{c\.client_ip \? `\(\$\{c\.client_ip\}\)` : ''\}/);
 });
