@@ -303,6 +303,23 @@ BEFORE UPDATE ON public.profiles
 FOR EACH ROW
 EXECUTE FUNCTION private.prevent_invalid_profile_update();
 
+CREATE OR REPLACE FUNCTION public.handle_profile_email_sync()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    NEW.email := (SELECT email FROM auth.users WHERE id = NEW.user_id);
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_profile_insert_sync_email ON public.profiles;
+CREATE TRIGGER on_profile_insert_sync_email
+BEFORE INSERT OR UPDATE ON public.profiles
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_profile_email_sync();
+
 REVOKE ALL ON SCHEMA private FROM PUBLIC;
 GRANT USAGE ON SCHEMA private TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION private.current_profile_is_master() TO authenticated;

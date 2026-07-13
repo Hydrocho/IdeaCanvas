@@ -7,8 +7,10 @@ const authJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'auth.js'), 'utf
 const boardsPageJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'boards-page.js'), 'utf8');
 const schemaSql = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'supabase_schema.sql'), 'utf8');
 
-test('defines email column in public.profiles table schema', () => {
+test('defines email column in public.profiles table schema and triggers', () => {
   assert.match(schemaSql, /CREATE TABLE IF NOT EXISTS public\.profiles \([\s\S]*email TEXT/);
+  assert.match(schemaSql, /CREATE OR REPLACE FUNCTION public\.handle_profile_email_sync\(\)/);
+  assert.match(schemaSql, /CREATE TRIGGER on_profile_insert_sync_email/);
 });
 
 test('js/auth.js normalizes and extracts the email property', () => {
