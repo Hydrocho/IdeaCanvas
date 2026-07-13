@@ -22,6 +22,7 @@ let currentBoardId = boardsApi.getBoardIdFromUrl(window.location.href);
 let currentUser = null;
 let currentProfile = null;
 let isSectionViewEnabled = false;
+let activeCommentNoteId = null;
 let commentDataMap = {}; // noteId => [comments]
 let likeCountMap = {}; // noteId => count
 let userLikesMap = {}; // noteId => true/false (현재 사용자가 좋아요를 눌렀는지 여부)
@@ -583,9 +584,9 @@ function renderNotes() {
                         
                         <!-- 댓글 쓰기 폼 -->
                         <div class="flex items-center gap-1 border-t border-outline-variant/20 pt-2">
-                            <input id="cmt-input-${note.id}" class="flex-1 bg-white border border-outline-variant/30 rounded-lg px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-primary placeholder:text-[10px]" placeholder="댓글 입력..." type="text" onkeydown="handleCommentSubmit(event, '${note.id}')"/>
-                            <button onclick="submitComment('${note.id}')" class="p-1 text-primary hover:bg-primary/10 rounded-lg" title="댓글 등록">
-                                <span class="material-symbols-outlined text-base">send</span>
+                            <input readonly onclick="openCommentModal('${note.id}')" class="flex-1 cursor-pointer bg-white border border-outline-variant/30 rounded-lg px-2.5 py-1 text-xs outline-none placeholder:text-[10px]" placeholder="댓글 작성..." type="text"/>
+                            <button onclick="openCommentModal('${note.id}')" class="p-1 text-primary hover:bg-primary/10 rounded-lg" title="댓글 작성">
+                                <span class="material-symbols-outlined text-base">chat_bubble</span>
                             </button>
                         </div>
                     </div>
@@ -1302,6 +1303,86 @@ async function openEditNoteModal(id) {
     document.getElementById('submit-btn-text').textContent = '수정 완료';
     updateNoteSubmitState();
     elements.noteModal.classList.remove('hidden');
+}
+
+// 댓글 모달 열기
+function openCommentModal(noteId) {
+    activeCommentNoteId = noteId;
+    const authorInput = document.getElementById('comment-author-input');
+    const contentInput = document.getElementById('comment-content-input');
+    const modal = document.getElementById('comment-modal');
+
+    if (!authorInput || !contentInput || !modal) return;
+
+    contentInput.value = '';
+
+    if (currentUser) {
+        authorInput.value = currentProfile?.display_name || (typeof IdeaCanvasAuth !== 'undefined' ? IdeaCanvasAuth.getDisplayName(currentProfile, currentUser) : (currentUser.email ? currentUser.email.split('@')[0] : '교사'));
+        authorInput.disabled = true;
+    } else {
+        authorInput.value = localStorage.getItem('ideacanvas_comment_author') || '';
+        authorInput.disabled = false;
+    }
+
+    modal.classList.remove('hidden');
+    setTimeout(() => contentInput.focus(), 50);
+}
+
+// 댓글 모달 닫기
+function closeCommentModal() {
+    activeCommentNoteId = null;
+    const modal = document.getElementById('comment-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+// 모달에서 댓글 제출
+async function submitCommentFromModal() {
+    if (!supabaseClient || !activeCommentNoteId) return;
+
+    const authorInput = document.getElementById('comment-author-input');
+    const contentInput = document.getElementById('comment-content-input');
+    
+    if (!authorInput || !contentInput) return;
+
+    const content = contentInput.value.trim();
+    if (!content) {
+        alert('댓글 내용을 입력해 주세요.');
+        return;
+    }
+
+    if (!canCurrentUserWrite()) {
+        alert('현재 보드는 글쓰기 기능이 꺼져 있습니다.');
+        return;
+    }
+
+    let cmtAuthor = authorInput.value.trim();
+    if (!cmtAuthor) {
+        cmtAuthor = '익명';
+    }
+
+    if (!currentUser && cmtAuthor !== '익명') {
+        localStorage.setItem('ideacanvas_comment_author', cmtAuthor);
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('comments')
+            .insert([{
+                note_id: activeCommentNoteId,
+                author: cmtAuthor,
+                author_id: authorId,
+                author_user_id: currentUser?.id || null,
+                content: content
+            }]);
+
+        if (error) throw error;
+        closeCommentModal();
+    } catch (e) {
+        console.error("Submit comment failed:", e);
+        alert('댓글 등록에 실패했습니다: ' + e.message);
+    }
 }
 
 // 좋아요 토글
@@ -2059,6 +2140,26 @@ function bindGeneralEvents() {
     document.querySelectorAll('.modal-close-trigger, .modal-close-btn').forEach(btn => {
         btn.addEventListener('click', closeAllModals);
     });
+
+    // 댓글 모달 이벤트 바인딩
+    document.querySelectorAll('.comment-modal-close-trigger, .comment-modal-close-btn').forEach(btn => {
+        btn.addEventListener('click', closeCommentModal);
+    });
+
+    const commentSubmitBtn = document.getElementById('comment-submit-btn');
+    if (commentSubmitBtn) {
+        commentSubmitBtn.addEventListener('click', submitCommentFromModal);
+    }
+
+    const commentContentInput = document.getElementById('comment-content-input');
+    if (commentContentInput) {
+        commentContentInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitCommentFromModal();
+            }
+        });
+    }
 
 
 
