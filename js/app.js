@@ -23,6 +23,7 @@ let currentUser = null;
 let currentProfile = null;
 let isSectionViewEnabled = false;
 let activeCommentNoteId = null;
+let clientMaskedIP = '';
 let commentDataMap = {}; // noteId => [comments]
 let likeCountMap = {}; // noteId => count
 let userLikesMap = {}; // noteId => true/false (현재 사용자가 좋아요를 눌렀는지 여부)
@@ -508,7 +509,7 @@ function renderNotes() {
             commentsHtml += `
                 <div class="flex items-start justify-between gap-2 text-xs py-1 border-b border-outline-variant/10 last:border-b-0 group/comment">
                     <div class="min-w-0 flex-1">
-                        <span class="font-bold text-on-surface text-[11px]">${escapeHtml(c.author)}:</span>
+                        <span class="font-bold text-on-surface text-[11px]">${escapeHtml(c.author)} <span class="text-[9px] text-on-surface-variant/70 font-normal">${c.client_ip ? `(ip: ${c.client_ip})` : ''}</span>:</span>
                         <span class="text-on-surface-variant break-all">${escapeHtml(c.content)}</span>
                     </div>
                     ${commentOwner ? `
@@ -564,7 +565,7 @@ function renderNotes() {
                 <!-- 메타데이터 & 좋아요 리액션 -->
                 <div class="mt-4 flex items-center justify-between border-t border-outline-variant/20 pt-3">
                     <div class="flex items-center gap-1">
-                        <span class="text-[10px] text-on-surface-variant">${formatDate(note.created_at)}</span>
+                        <span class="text-[10px] text-on-surface-variant">${escapeHtml(note.author || '익명')} ${note.client_ip ? `(ip: ${note.client_ip})` : ''} • ${formatDate(note.created_at)}</span>
                     </div>
                     
                     ${currentBoardSettings.likes_enabled !== false ? `
@@ -1136,7 +1137,8 @@ async function handleNoteSubmit(e) {
         link_url: attachmentType === 'youtube' ? elements.youtubeUrlInput.value.trim() : (attachmentType === 'link' ? elements.linkUrlInput.value.trim() : null),
         link_preview: attachmentType === 'link' || attachmentType === 'youtube' ? parsedLinkPreview : null,
         section: section,
-        board_id: currentBoardId
+        board_id: currentBoardId,
+        client_ip: clientMaskedIP
     };
 
     try {
@@ -1375,7 +1377,8 @@ async function submitCommentFromModal() {
                 author: cmtAuthor,
                 author_id: authorId,
                 author_user_id: currentUser?.id || null,
-                content: content
+                content: content,
+                client_ip: clientMaskedIP
             }]);
 
         if (error) throw error;
@@ -2731,8 +2734,31 @@ function initBoardTitleEditor() {
     inputEl.addEventListener('blur', saveTitle);
 }
 
+// IP 조회 및 마스킹
+async function fetchClientIP() {
+    try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        const ip = data.ip;
+        if (ip) {
+            const parts = ip.split('.');
+            if (parts.length === 4) {
+                clientMaskedIP = `${parts[0]}.${parts[1]}.***.***`;
+            } else if (ip.includes(':')) {
+                const blocks = ip.split(':');
+                if (blocks.length >= 2) {
+                    clientMaskedIP = `${blocks[0]}:${blocks[1]}:***:***`;
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to fetch client IP:', e);
+    }
+}
+
 // --- 10. 초기화 구문 ---
 document.addEventListener('DOMContentLoaded', () => {
+    fetchClientIP();
     document.querySelector('.bg-error-container\\/30')?.remove();
     const legacyTitleInput = document.getElementById('note-title');
     if (legacyTitleInput) {

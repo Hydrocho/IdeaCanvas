@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS public.notes (
     drawing_data TEXT,
     link_url TEXT,
     link_preview JSONB,
-    section TEXT DEFAULT '새 섹션'
+    section TEXT DEFAULT '새 섹션',
+    client_ip TEXT
 );
 
 CREATE TABLE IF NOT EXISTS public.comments (
@@ -46,7 +47,8 @@ CREATE TABLE IF NOT EXISTS public.comments (
     author_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     author TEXT DEFAULT '익명',
     author_id TEXT NOT NULL,
-    content TEXT NOT NULL
+    content TEXT NOT NULL,
+    client_ip TEXT
 );
 
 CREATE TABLE IF NOT EXISTS public.likes (
