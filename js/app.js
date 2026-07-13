@@ -1441,8 +1441,13 @@ function extractWordFrequencies() {
     const rawWords = cleanedText.split(/\s+/);
     const frequencies = {};
 
-    // Suffix trimmer postpositions
-    const postpositions = ['은', '는', '이', '가', '을', '를', '에', '의', '로', '와', '과', '도', '만', '한', '에서', '에게', '으로', '하고', '이며', '이다', '이었다', '였습니다'];
+    // Suffix trimmer postpositions (sorted by length descending for greedy matching)
+    const postpositions = [
+        '었습니다', '였습니다', '입니다', '입니까', '하나요', '해요',
+        '이었다', '이라고', '에서만', '에게만', '으로는', '으로서', '으로써', '대로만',
+        '에서', '에게', '으로', '하고', '이며', '이다', '부터', '까지', '보다', '처럼', '같이', '한테', '이랑', '마저', '조차', '마냥', '테고', '라고', '로써', '로서', '더러', '보고', '마다', '조차', '끼리',
+        '은', '는', '이', '가', '을', '를', '에', '의', '로', '와', '과', '도', '만', '한', '고', '랑', '께'
+    ];
 
     rawWords.forEach(w => {
         let word = w.trim();

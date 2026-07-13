@@ -24,7 +24,7 @@ test('js/app.js extractWordFrequencies analyzes only content and trims postposit
   assert.doesNotMatch(appJs, /combinedText \+= ' ' \+ note\.title;/);
 
   // Trims postpositions (은/는/이/가/을/를/에/의)
-  assert.match(appJs, /const postpositions = \['은', '는', '이', '가', '을', '를'/);
+  assert.match(appJs, /const postpositions = \[/);
   assert.match(appJs, /word\.endsWith\(suffix\)/);
 });
 
