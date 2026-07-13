@@ -345,6 +345,18 @@
 
         if (error) throw error;
         currentProfile = authUtils.normalizeProfile(data);
+
+        if (currentProfile && !currentProfile.email && currentUser.email) {
+            const { data: updatedData, error: updateError } = await supabaseClient
+                .from('profiles')
+                .update({ email: currentUser.email })
+                .eq('user_id', currentUser.id)
+                .select()
+                .single();
+            if (!updateError && updatedData) {
+                currentProfile = authUtils.normalizeProfile(updatedData);
+            }
+        }
     }
 
     async function ensureCurrentProfile() {
@@ -478,7 +490,7 @@
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-outline-variant/50 bg-white px-4 py-3">
                 <div>
                     <p class="font-bold text-on-surface">${escapeHtml(profile.display_name || '이름 없음')}</p>
-                    <p class="text-xs text-on-surface-variant">${escapeHtml(profile.user_id)} ${masterBadge}</p>
+                    <p class="text-xs text-on-surface-variant">${escapeHtml(profile.email || '이메일 없음')} ${masterBadge}</p>
                 </div>
                 <div class="flex gap-2">${approveButton}${rejectButton}${masterButton}</div>
             </div>

@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.boards (
 CREATE TABLE IF NOT EXISTS public.profiles (
     user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     display_name TEXT NOT NULL,
+    email TEXT,
     role TEXT NOT NULL DEFAULT 'teacher_pending' CHECK (role IN ('teacher_pending', 'teacher', 'teacher_rejected')),
     is_master BOOLEAN NOT NULL DEFAULT false,
     is_primary_master BOOLEAN NOT NULL DEFAULT false,

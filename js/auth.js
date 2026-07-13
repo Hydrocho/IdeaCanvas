@@ -19,6 +19,7 @@
             role,
             is_master: profile.is_master === true,
             is_primary_master: profile.is_primary_master === true,
+            email: typeof profile.email === 'string' ? profile.email : '',
         };
     }
 
@@ -83,11 +84,12 @@
         if (!user?.id) return [];
         const normalizedName = typeof displayName === 'string' && displayName.trim()
             ? displayName.trim()
-            : getDisplayName(null, user) || '\uad50\uc0ac';
+            : getDisplayName(null, user) || '교사';
         return [
             {
                 user_id: user.id,
                 display_name: normalizedName,
+                email: user.email || '',
                 role: 'teacher',
                 is_master: true,
                 is_primary_master: true,
@@ -95,6 +97,7 @@
             {
                 user_id: user.id,
                 display_name: normalizedName,
+                email: user.email || '',
                 role: 'teacher_pending',
                 is_master: false,
                 is_primary_master: false,
