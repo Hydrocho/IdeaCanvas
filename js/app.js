@@ -736,6 +736,26 @@ function renderBoardAccessUI() {
     if (locked) locked.classList.toggle('hidden', canManage);
     if (settingsBtn) settingsBtn.classList.toggle('hidden', !canManage);
 
+    // 보드 제목 편집 가능 여부에 따른 UI 세팅
+    const titleContainer = document.getElementById('board-title-container');
+    if (titleContainer) {
+        if (canManage) {
+            titleContainer.classList.add('cursor-pointer', 'group');
+            titleContainer.setAttribute('title', '더블 클릭하여 제목 수정');
+            const pencilIcon = titleContainer.querySelector('span.material-symbols-outlined');
+            if (pencilIcon) {
+                pencilIcon.classList.remove('hidden');
+            }
+        } else {
+            titleContainer.classList.remove('cursor-pointer', 'group');
+            titleContainer.removeAttribute('title');
+            const pencilIcon = titleContainer.querySelector('span.material-symbols-outlined');
+            if (pencilIcon) {
+                pencilIcon.classList.add('hidden');
+            }
+        }
+    }
+
     // 글쓰기 권한에 따른 FAB(글쓰기 버튼) 표시 여부 제어
     const canWrite = canCurrentUserWrite();
     if (elements.fabNewNoteBtn) {
