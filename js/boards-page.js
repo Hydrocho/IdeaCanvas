@@ -284,6 +284,33 @@
             elements.userDisplay.textContent = '';
         }
 
+        if (elements.authLoggedIn) {
+            if (dashboardAllowed) {
+                if (elements.sidebarUserSlot && elements.authLoggedIn.parentElement !== elements.sidebarUserSlot) {
+                    elements.sidebarUserSlot.appendChild(elements.authLoggedIn);
+                }
+                elements.authLoggedIn.classList.add('w-full', 'flex-col', 'items-stretch');
+                elements.authLoggedIn.classList.remove('items-center', 'gap-3');
+                
+                elements.userDisplay?.classList.add('max-w-full');
+                elements.userDisplay?.classList.remove('max-w-56', 'truncate', 'text-sm', 'font-bold');
+                
+                elements.logoutButton?.classList.add('mt-2', 'w-full', 'bg-surface-container-lowest');
+            } else {
+                const headerContainer = elements.authActions?.parentElement;
+                if (headerContainer && elements.authLoggedIn.parentElement !== headerContainer) {
+                    headerContainer.appendChild(elements.authLoggedIn);
+                }
+                elements.authLoggedIn.classList.remove('w-full', 'flex-col', 'items-stretch');
+                elements.authLoggedIn.classList.add('items-center', 'gap-3');
+                
+                elements.userDisplay?.classList.remove('max-w-full');
+                elements.userDisplay?.classList.add('max-w-56', 'truncate', 'text-sm', 'font-bold');
+                
+                elements.logoutButton?.classList.remove('mt-2', 'w-full', 'bg-surface-container-lowest');
+            }
+        }
+
         if (!dashboardAllowed) {
             boards = [];
             boardNoteActivity = [];
@@ -820,12 +847,7 @@
         });
         if (elements.accountsPanel) elements.accountsPanel.addEventListener('click', handleListClick);
 
-        if (elements.sidebarUserSlot && elements.authLoggedIn) {
-            elements.sidebarUserSlot.appendChild(elements.authLoggedIn);
-            elements.authLoggedIn.classList.add('w-full', 'flex-col', 'items-stretch');
-            elements.userDisplay?.classList.add('max-w-full');
-            elements.logoutButton?.classList.add('mt-2', 'w-full', 'bg-surface-container-lowest');
-        }
+
 
         await initAuth();
         if (canUseDashboard()) {
